@@ -69,22 +69,25 @@ class Propagator:
     trigger further propagation naturally.
     """
     
-    def __init__(self, operation, cells, name=None):
+    def __init__(self, to_do, neighbors, name=None):
         """
         Initialize a propagator.
         
         Args:
-            operation: A function that operates on and updates cell values.
-            cells: The cells this propagator interacts with.
+            to_do: A function that operates on and updates cell values.
+            neighbors: The cells this propagator interacts with.
             name: Optional name for debugging.
         """
-        self.operation = operation
-        self.cells = cells
+        self.operation = to_do
+        self.cells = neighbors
         self.name = name
         
         # Register this propagator with all its cells
-        for cell in cells:
+        for cell in neighbors:
             cell.new_neighbor(self)
+            
+        # Alert the propagator at least once during initialization
+        alert_propagator(self) # intentionally redundant alert
     
     def alert(self):
         """
@@ -99,12 +102,17 @@ class Propagator:
         return f"Propagator({self.name}: {self.cells})"
 
 
-def make_propagator(operation, cells, name=None):
+def make_propagator(to_do, neighbors, name=None):
     """
     Factory function to create a new propagator.
     This follows the paper's pattern of having simple factory functions.
+    
+    Args:
+        to_do: The operation function to run when the propagator is alerted
+        neighbors: The cells this propagator interacts with
+        name: Optional name for debugging
     """
-    return Propagator(operation, cells, name)
+    return Propagator(to_do, neighbors, name)
 
 
 def alert_propagator(propagator): # could this be a function of a cell?
@@ -126,6 +134,74 @@ def alert_propagators(propagators): # could this be a function of a cell?
     for propagator in propagators:
         alert_propagator(propagator)
 
+# Double check this ---- may need to handle None's differently
+def function_to_propagator_constructor(f):
+    """
+    Creates a propagator constructor from a regular function.
+    
+    This allows us to easily create propagators for operations like
+    addition, subtraction, etc.
+    
+    Args:
+        f: The function to convert into a propagator constructor
+        
+    Returns:
+        A function that creates a propagator when given cells
+    """
+    def constructor(*cells):
+        # The last cell is the output, the rest are inputs
+        output = cells[-1]
+        inputs = cells[:-1]
+        
+        # Create a propagator that watches the inputs but not the output
+        def operation(cells):
+            # Get the content of all input cells
+            input_values = [cell.content for cell in inputs]
+            
+            # Only proceed if all inputs have values
+            if all(val is not None for val in input_values):
+                # Apply the function to the input values
+                result = f(*input_values)
+                # Add the result to the output cell
+                output.add_content(result)
+        
+        # Create and return the propagator
+        return make_propagator(operation, inputs)
+    
+    return constructor
+
+# Example usage of function_to_propagator_constructor
+def adder():
+    """
+    Creates a propagator that adds two values.
+    
+    Usage: adder()(a, b, c) creates a propagator that ensures c = a + b
+    """
+    return function_to_propagator_constructor(lambda x, y: x + y)
+
+def subtractor():
+    """
+    Creates a propagator that subtracts one value from another.
+    
+    Usage: subtractor()(a, b, c) creates a propagator that ensures c = a - b
+    """
+    return function_to_propagator_constructor(lambda x, y: x - y)
+
+def multiplier():
+    """
+    Creates a propagator that multiplies two values.
+    
+    Usage: multiplier()(a, b, c) creates a propagator that ensures c = a * b
+    """
+    return function_to_propagator_constructor(lambda x, y: x * y)
+
+def divider():
+    """
+    Creates a propagator that divides one value by another.
+    
+    Usage: divider()(a, b, c) creates a propagator that ensures c = a / b
+    """
+    return function_to_propagator_constructor(lambda x, y: x / y)
 
 # Example usage
 if __name__ == "__main__":
@@ -136,4 +212,25 @@ if __name__ == "__main__":
     d = make_cell("d")
     e = make_cell("e")
     
+    # Simple test of function-based propagators
+    print("Testing function-based propagators:")
+    
+    # Create an adder propagator: c = a + b
+    adder()(a, b, c)
+    
+    # Create a multiplier propagator: e = c * d
+    multiplier()(c, d, e)
+    
+    # Set initial values
+    a.add_content(3)
+    b.add_content(4)
+    d.add_content(2)
+    
+    # Print results
+    print(f"a = {a.content}")  # Should be 3
+    print(f"b = {b.content}")  # Should be 4
+    print(f"c = {c.content}")  # Should be 7 (a + b)
+    print(f"d = {d.content}")  # Should be 2
+    print(f"e = {e.content}")  # Should be 14 (c * d = (a + b) * d)
+
 
