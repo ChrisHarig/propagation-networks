@@ -1,5 +1,25 @@
 from multipledispatch import dispatch
 
+###----------------------------NOTHING OBJECT----------------------------###
+
+class Nothing:
+    """
+    Represents the absence of information in a cell.
+    
+    This is distinct from None and allows us to explicitly handle
+    the case where a cell has no information yet.
+    """
+    def __eq__(self, other):
+        return isinstance(other, Nothing)
+    
+    def __str__(self):
+        return "Nothing"
+
+# Create a singleton instance
+NOTHING = Nothing()
+
+###----------------------------CELL OBJECT----------------------------###
+
 class Cell:
     """
     A cell stores partial information about a value and notifies neighbors when it changes.
@@ -9,47 +29,59 @@ class Cell:
     triggering computation by alerting neighbors when they change.
     """
     
-    def __init__(self, name=None): #should we use getters?
+    def __init__(self, name=None):
         self.name = name
-        self.content = None  # Following the paper, this stores the cell's content
-        self.neighbors = []  # Propagators that depend on this cell
+        self._content = NOTHING  # Use NOTHING instead of None
+        self._neighbors = []  # Propagators that depend on this cell - now private
     
     def new_neighbor(self, neighbor):
         """
         Register a new propagator as interested in this cell's value.
         The propagator will be notified when this cell's content changes.
         """
-        if neighbor not in self.neighbors:
-            self.neighbors.append(neighbor)
+        if neighbor not in self._neighbors:
+            self._neighbors.append(neighbor)
             alert_propagator(neighbor)
-        
     
-    def add_content(self, content):
+    def content(self):
         """
-        Add new content to this cell. If the content changes,
-        alert the neighbors (propagators) that depend on this cell.
+        Returns the current content of the cell.
+        This follows the paper's pattern of having a content accessor.
+        """
+        return self._content
         
-        This triggers the propagation of information through the network.
+    def add_content(self, content): # may not need to return anything
+        """
+        Add new content to this cell according to the information regime:
+        
+        1. Adding NOTHING to a cell is always ok and doesn't change the content
+        2. Adding a value to a cell with NOTHING sets the cell's content to that value
+        3. Adding a value to a cell with the same value does nothing
+        4. Adding a value to a cell with a different value signals an error
         
         Returns True if the content was updated, False otherwise.
         """
-        # If we have no content yet, just store it
-        if self.content is None:
-            self.content = content
-            # Alert neighbors about the new content - this triggers propagation
-            alert_propagators(self.neighbors)
-            return True
-        
-        # If the new content is the same as the current content, do nothing
-        if self.content == content:
+        # Case 1: Adding NOTHING is always ok and doesn't change anything
+        if content is NOTHING:
             return False
         
-        # Otherwise, we have a contradiction
-        raise ValueError(f"Contradiction: Cell {self.name} already has value {self.content}, "
+        # Case 2: If we have no content yet, store the new content
+        if self._content is NOTHING:
+            self._content = content
+            # Alert neighbors about the new content - this triggers propagation
+            alert_propagators(self._neighbors)
+            return True
+        
+        # Case 3: If the new content is the same as the current content, do nothing
+        if self._content == content:
+            return False
+        
+        # Case 4: Otherwise, we have a contradiction
+        raise ValueError(f"Contradiction: Cell {self.name} already has value {self._content}, "
                          f"but trying to add {content}")
     
     def __str__(self):
-        return f"Cell({self.name}: {self.content})"
+        return f"Cell({self.name}: {self._content})"
 
 
 def make_cell(name=None):
@@ -59,7 +91,7 @@ def make_cell(name=None):
     """
     return Cell(name)
 
-
+###----------------------------PROPAGATOR OBJECT----------------------------###
 class Propagator:
     """
     A propagator enforces a relationship between cells.
@@ -114,7 +146,6 @@ def make_propagator(to_do, neighbors, name=None):
     """
     return Propagator(to_do, neighbors, name)
 
-
 def alert_propagator(propagator): # could this be a function of a cell?
     """
     Alert a single propagator that a cell's content has changed.
@@ -134,13 +165,14 @@ def alert_propagators(propagators): # could this be a function of a cell?
     for propagator in propagators:
         alert_propagator(propagator)
 
-# Double check this ---- may need to handle None's differently
-def function_to_propagator_constructor(f):
+###----------------------------FUNCTION TOPROPAGATOR CONSTRUCTOR----------------------------###
+
+
+def function_to_propagator_constructor(f): #double check this, may need to handle None's differently
+    #we should not just run the propagator in this fucntion, should just exist
     """
     Creates a propagator constructor from a regular function.
-    
-    This allows us to easily create propagators for operations like
-    addition, subtraction, etc.
+    Enhanced to handle NOTHING values explicitly.
     
     Args:
         f: The function to convert into a propagator constructor
@@ -149,28 +181,33 @@ def function_to_propagator_constructor(f):
         A function that creates a propagator when given cells
     """
     def constructor(*cells):
-        # The last cell is the output, the rest are inputs
         output = cells[-1]
         inputs = cells[:-1]
         
-        # Create a propagator that watches the inputs but not the output
         def operation(cells):
             # Get the content of all input cells
-            input_values = [cell.content for cell in inputs]
+            input_values = [cell.content() for cell in inputs]
             
-            # Only proceed if all inputs have values
-            if all(val is not None for val in input_values):
+            # Check if any input is NOTHING
+            if any(val is NOTHING for val in input_values):
+                # Can't compute with missing information
+                return
+            
+            try:
                 # Apply the function to the input values
                 result = f(*input_values)
                 # Add the result to the output cell
                 output.add_content(result)
+            except Exception as e:
+                # Handle computation errors (like division by zero)
+                print(f"Computation error in {f.__name__ if hasattr(f, '__name__') else 'propagator'}: {e}")
         
-        # Create and return the propagator
-        return make_propagator(operation, inputs)
+        return make_propagator(operation, cells)  # Pass all cells to the propagator
     
     return constructor
 
-# Example usage of function_to_propagator_constructor
+###----------------------------PROPAGATOR CONSTRUCTOR EXAMPLES----------------------------###
+
 def adder():
     """
     Creates a propagator that adds two values.
@@ -203,6 +240,8 @@ def divider():
     """
     return function_to_propagator_constructor(lambda x, y: x / y)
 
+###----------------------------MAIN USAGE EXAMPLE----------------------------###
+
 # Example usage
 if __name__ == "__main__":
     # Create cells
@@ -214,23 +253,24 @@ if __name__ == "__main__":
     
     # Simple test of function-based propagators
     print("Testing function-based propagators:")
-    
+
+    a.add_content(3)
+    b.add_content(4)
+
     # Create an adder propagator: c = a + b
     adder()(a, b, c)
-    
+
     # Create a multiplier propagator: e = c * d
     multiplier()(c, d, e)
     
     # Set initial values
-    a.add_content(3)
-    b.add_content(4)
     d.add_content(2)
     
     # Print results
-    print(f"a = {a.content}")  # Should be 3
-    print(f"b = {b.content}")  # Should be 4
-    print(f"c = {c.content}")  # Should be 7 (a + b)
-    print(f"d = {d.content}")  # Should be 2
-    print(f"e = {e.content}")  # Should be 14 (c * d = (a + b) * d)
+    print(f"a = {a.content()}")  # Should be 3
+    print(f"b = {b.content()}")  # Should be 4
+    print(f"c = {c.content()}")  # Should be 7 (a + b)
+    print(f"d = {d.content()}")  # Should be 2
+    print(f"e = {e.content()}")  # Should be 14 (c * d = (a + b) * d)
 
 
