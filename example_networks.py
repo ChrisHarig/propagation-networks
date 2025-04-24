@@ -3,7 +3,7 @@ from propagator_constructors import adder, multiplier, constant, subtractor, div
 
 ###----------------------------SMALL NETWORK EXAMPLES----------------------------###
 
-def product(x, y, total):
+def product_constraint(x, y, total):
     """
     Creates a network of propagators that maintain the relationship total = x * y.
     
@@ -83,7 +83,7 @@ def fahrenheit_celsius_converter(f, c):
     sum_constraint(f_minus_32, thirty_two, f)
     
     # Part 2: C * 9 = C_times_9
-    product(c, nine, c_times_9)
+    product_constraint(c, nine, c_times_9)
     
     # Part 3: F_minus_32 * 5 = C_times_9
-    product(f_minus_32, five, c_times_9) 
+    product_constraint(f_minus_32, five, c_times_9) 

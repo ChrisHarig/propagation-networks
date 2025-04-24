@@ -1,7 +1,42 @@
 from cell import make_cell
 from interval import Interval
-from example_networks import fahrenheit_celsius_converter
+from example_networks import fahrenheit_celsius_converter, sum_constraint, product_constraint
 from propagator_constructors import adder, multiplier
+from graph_visualizer import GraphVisualizer
+
+def visualize_fahrenheit_celsius():
+    """Create and visualize a Fahrenheit-Celsius converter network."""
+    print("\nCreating and visualizing Fahrenheit-Celsius converter...")
+    
+    # Create a visualizer
+    visualizer = GraphVisualizer()
+    
+    # Enable visualization globally
+    import propagator
+    import cell
+    propagator.set_visualizer(visualizer)
+    cell.set_visualizer(visualizer)
+    
+    # Create cells for temperature
+    fahrenheit = make_cell("F")
+    celsius = make_cell("C")
+    
+    # Set up the converter
+    fahrenheit_celsius_converter(fahrenheit, celsius)
+    
+    # Set a value to demonstrate propagation
+    fahrenheit.add_content(212)
+    
+    # Display results
+    print(f"Fahrenheit: {fahrenheit.content()} (Expected: 212)")
+    print(f"Celsius: {celsius.content()} (Expected: 100)")
+    
+    # Draw the network
+    visualizer.draw("fahrenheit_celsius_converter")
+    
+    # Disable visualization
+    propagator.set_visualizer(None)
+    cell.set_visualizer(None)
 
 def test_fahrenheit_celsius_converter():
     """Test the Fahrenheit-Celsius converter with various inputs."""
@@ -59,51 +94,103 @@ def test_fahrenheit_celsius_converter():
     fahrenheit_celsius_converter(f5, c5)
 
     # Test 5: Introduce a contradiction
-    print("\n--- Test 5: Contradiction ---")
+    print("\n--- Test 5: Testing contradiction handling ---")
+    print("Setting C=0, which should make F=32")
+    c5.add_content(0)
+    print(f"Current state: C={c5.content()} (Expected: 0), F={f5.content()} (Expected: 32)")
+    
+    print("\nNow attempting to set F=50, which should cause a contradiction")
     try:
-        c5.add_content(0)  # Should set F5 to 32
-        print(f"After C=0: C={c5.content()} (Expected: 0), F={f5.content()} (Expected: 32)")
         f5.add_content(50) # Contradiction: F cannot be 50 if C is 0
-        print(f"After F=50: C={c5.content()}, F={f5.content()}") # Should not reach here
+        print(f"ERROR: No contradiction detected! C={c5.content()}, F={f5.content()}")
     except ValueError as e:
-        print(f"Caught expected contradiction: {e}")
+        print(f"✓ Correctly caught contradiction: {e}")
         print(f"Final state: C={c5.content()} (Expected: 0), F={f5.content()} (Expected: 32)")
 
 def test_adder_propagator():
     """Test the adder propagator with simple values."""
     print("\nTesting Adder Propagator:")
-
+    
     a = make_cell("A")
     b = make_cell("B")
     c = make_cell("C")
 
-    adder()(a, b, c)
+    # Use sum_constraint instead of adder() directly
+    sum_constraint(a, b, c)
 
     a.add_content(5)
     b.add_content(10)
     print(f"A: {a.content()} (Expected: 5), B: {b.content()} (Expected: 10), C: {c.content()} (Expected: 15)")
 
-    c.add_content(20)
-    print(f"A: {a.content()} (Expected: 10), B: {b.content()} (Expected: 10), C: {c.content()} (Expected: 20)")
+    # Test contradiction handling
+    print("\nTesting contradiction handling:")
+    print("Current state: A=5, B=10, C=15")
+    print("Attempting to set C=20, which should cause a contradiction")
+    try:
+        c.add_content(20)  # This should cause a contradiction since c should be 15
+        print(f"ERROR: No contradiction detected! A={a.content()}, B={b.content()}, C={c.content()}")
+    except ValueError as e:
+        print(f"✓ Correctly caught contradiction: {e}")
+        print(f"Final state: A={a.content()}, B={b.content()}, C={c.content()}")
+
+    # Test with new cells to avoid previous contradiction
+    print("\n--- Testing bidirectional propagation with new cells ---")
+    a2 = make_cell("A2")
+    b2 = make_cell("B2")
+    c2 = make_cell("C2")
+    
+    # Use sum_constraint instead of adder() directly
+    sum_constraint(a2, b2, c2)
+    
+    # Set c first, then one of the inputs
+    print("Setting C=15, then A=7, should compute B=8")
+    c2.add_content(15)
+    a2.add_content(7)
+    print(f"C: {c2.content()} (Expected: 15), A: {a2.content()} (Expected: 7), B: {b2.content()} (Expected: 8)")
 
 def test_multiplier_propagator():
     """Test the multiplier propagator with simple values."""
     print("\nTesting Multiplier Propagator:")
-
+    
     x = make_cell("X")
     y = make_cell("Y")
     total = make_cell("Total")
 
-    multiplier()(x, y, total)
+    # Use product_constraint instead of multiplier() directly
+    product_constraint(x, y, total)
 
     x.add_content(3)
     y.add_content(4)
     print(f"X: {x.content()} (Expected: 3), Y: {y.content()} (Expected: 4), Total: {total.content()} (Expected: 12)")
 
-    total.add_content(24)
-    print(f"X: {x.content()} (Expected: 6), Y: {y.content()} (Expected: 4), Total: {total.content()} (Expected: 24)")
+    # Test contradiction handling
+    print("\nTesting contradiction handling:")
+    print("Current state: X=3, Y=4, Total=12")
+    print("Attempting to set Total=24, which should cause a contradiction")
+    try:
+        total.add_content(24)  # This should cause a contradiction since total should be 12
+        print(f"ERROR: No contradiction detected! X={x.content()}, Y={y.content()}, Total={total.content()}")
+    except ValueError as e:
+        print(f"✓ Correctly caught contradiction: {e}")
+        print(f"Final state: X={x.content()}, Y={y.content()}, Total={total.content()}")
+
+    # Test with new cells to avoid previous contradiction
+    print("\n--- Testing bidirectional propagation with new cells ---")
+    x2 = make_cell("X2")
+    y2 = make_cell("Y2")
+    total2 = make_cell("Total2")
+    
+    # Use product_constraint instead of multiplier() directly
+    product_constraint(x2, y2, total2)
+    
+    # Set total first, then one of the inputs
+    print("Setting Total=24, then X=6, should compute Y=4")
+    total2.add_content(24)
+    x2.add_content(6)
+    print(f"Total: {total2.content()} (Expected: 24), X: {x2.content()} (Expected: 6), Y: {y2.content()} (Expected: 4)")
 
 if __name__ == "__main__":
     test_fahrenheit_celsius_converter()
     test_adder_propagator()
-    test_multiplier_propagator() 
+    test_multiplier_propagator()
+    visualize_fahrenheit_celsius() 

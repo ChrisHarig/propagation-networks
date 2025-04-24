@@ -1,5 +1,13 @@
 from nothing import NOTHING
 
+# Add global visualizer variable at the top of the file
+_visualizer = None
+
+def set_visualizer(visualizer):
+    """Set the global visualizer for propagators."""
+    global _visualizer
+    _visualizer = visualizer
+
 ###----------------------------PROPAGATOR OBJECT----------------------------###
 class Propagator:
     """
@@ -26,6 +34,8 @@ class Propagator:
         # Register this propagator with all its cells
         for cell in neighbors:
             cell.new_neighbor(self)
+            if _visualizer:
+                _visualizer.on_connection_made(self, cell)
             
         # Alert the propagator at least once during initialization
         alert_propagator(self)
@@ -47,11 +57,12 @@ class Propagator:
         return f"Propagator({self.name or 'Unnamed'}: [{cell_names}])"
 
 
-def make_propagator(to_do, neighbors, name=None): #can we just have prop constructor?
-    """
-    Factory function to create a new propagator.
-    """
-    return Propagator(to_do, neighbors, name)
+def make_propagator(to_do, neighbors, name=None):
+    """Factory function to create a new propagator."""
+    prop = Propagator(to_do, neighbors, name)
+    if _visualizer:
+        _visualizer.on_propagator_created(prop)
+    return prop
 
 def alert_propagator(propagator):
     """

@@ -47,6 +47,7 @@ def constant(value):
     """
     def constant_function():
         return value
+    
     constant_function.__name__ = f"constant({value})"
     return function_to_propagator_constructor(constant_function)
 

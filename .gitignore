@@ -4,4 +4,5 @@ venv/
 # Python cache files
 __pycache__/
 
-
+# Images files
+*.png
