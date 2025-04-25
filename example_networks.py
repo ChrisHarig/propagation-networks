@@ -47,6 +47,54 @@ def sum_constraint(a, b, total):
     # a = total - b
     subtractor()(total, b, a)
 
+def subtractor_constraint(minuend, subtrahend, difference):
+    """
+    Creates a network of propagators that maintain the relationship:
+    minuend - subtrahend = difference
+    
+    This is bidirectional:
+    - If minuend and subtrahend are known, difference will be computed
+    - If difference and subtrahend are known, minuend will be computed
+    - If minuend and difference are known, subtrahend will be computed
+    
+    Args:
+        minuend: Cell representing the number being subtracted from
+        subtrahend: Cell representing the number being subtracted
+        difference: Cell representing the result of the subtraction
+    """
+    # Create the subtraction constraint: minuend - subtrahend = difference
+    subtractor()(minuend, subtrahend, difference)
+    
+    # Create the inverse constraint: minuend = difference + subtrahend
+    adder()(difference, subtrahend, minuend)
+    
+    # Create the inverse constraint: subtrahend = minuend - difference
+    subtractor()(minuend, difference, subtrahend)
+
+def divider_constraint(dividend, divisor, quotient):
+    """
+    Creates a network of propagators that maintain the relationship:
+    dividend / divisor = quotient
+    
+    This is bidirectional:
+    - If dividend and divisor are known, quotient will be computed
+    - If quotient and divisor are known, dividend will be computed
+    - If dividend and quotient are known, divisor will be computed
+    
+    Args:
+        dividend: Cell representing the number being divided
+        divisor: Cell representing the number to divide by
+        quotient: Cell representing the result of the division
+    """
+    # Create the division constraint: dividend / divisor = quotient
+    divider()(dividend, divisor, quotient)
+    
+    # Create the inverse constraint: dividend = quotient * divisor
+    multiplier()(quotient, divisor, dividend)
+    
+    # Create the inverse constraint: divisor = dividend / quotient
+    divider()(dividend, quotient, divisor)
+
 ###--------------------------------TEST NETWORK EXAMPLES--------------------------------###
 
 def fahrenheit_celsius_converter(f, c):

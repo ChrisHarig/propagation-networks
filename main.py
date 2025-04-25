@@ -4,6 +4,8 @@ from tests import (
     test_multiplier_propagator,
     visualize_fahrenheit_celsius
 )
+from network_repl import PropNetworkREPL
+import sys
 
 def run_all_tests():
     """Run all tests for the propagator system."""
@@ -14,5 +16,14 @@ def run_all_tests():
     print("\nAll tests completed.")
 
 if __name__ == "__main__":
-    run_all_tests()
-    visualize_fahrenheit_celsius()
+    # Check if the user wants to run in REPL mode
+    if len(sys.argv) > 1 and sys.argv[1].lower() == "repl":
+        # Check if visualization should be disabled
+        use_visualization = "--no_vis" not in sys.argv
+        
+        repl = PropNetworkREPL()
+        repl.run(use_visualization=use_visualization)
+    else:
+        # Default to whatever functions placed here
+        run_all_tests()
+        visualize_fahrenheit_celsius()

@@ -27,41 +27,42 @@ class GraphVisualizer:
         cell_id = cell.name or str(id(cell))
         self.graph.add_edge(prop_id, cell_id)
         
-    def draw(self, filename=None):
-        """Draw the current state of the network."""
+    def draw(self, title=None):
+        """Draw the current network graph."""
+        plt.figure(figsize=(12, 8))
+        
+        # Create position layout
         pos = nx.spring_layout(self.graph)
         
-        # Draw cells
-        cell_nodes = [n for n,d in self.graph.nodes(data=True) if d.get('type')=='cell']
+        # Draw cells (blue)
+        cell_nodes = [n for n, attr in self.graph.nodes(data=True) 
+                     if attr.get('type') == 'cell']
         nx.draw_networkx_nodes(self.graph, pos, nodelist=cell_nodes, 
-                             node_color='lightblue', node_shape='o', 
-                             node_size=700, alpha=0.8)
+                              node_color='skyblue', node_size=700)
         
-        # Draw propagators
-        prop_nodes = [n for n,d in self.graph.nodes(data=True) if d.get('type')=='propagator']
-        nx.draw_networkx_nodes(self.graph, pos, nodelist=prop_nodes,
-                             node_color='lightgreen', node_shape='s',
-                             node_size=700, alpha=0.8)
+        # Draw propagators (red)
+        prop_nodes = [n for n, attr in self.graph.nodes(data=True) 
+                     if attr.get('type') == 'propagator']
+        nx.draw_networkx_nodes(self.graph, pos, nodelist=prop_nodes, 
+                              node_color='salmon', node_size=500)
         
         # Draw edges
-        nx.draw_networkx_edges(self.graph, pos, width=1.5, alpha=0.7)
+        nx.draw_networkx_edges(self.graph, pos)
         
-        # Create labels with content for cells
-        labels = {}
-        for node, attrs in self.graph.nodes(data=True):
-            if attrs.get('type') == 'cell':
-                labels[node] = f"{node}: {attrs.get('content', '')}"
-            else:
-                labels[node] = node
-                
-        nx.draw_networkx_labels(self.graph, pos, labels=labels, font_size=10)
+        # Draw labels
+        cell_labels = {n: f"{n}\n{self.graph.nodes[n].get('content', '')}" 
+                      for n in cell_nodes}
+        nx.draw_networkx_labels(self.graph, pos, labels=cell_labels)
         
-        plt.title("Propagator Network Visualization")
-        plt.axis('off')
+        prop_labels = {n: n for n in prop_nodes}
+        nx.draw_networkx_labels(self.graph, pos, labels=prop_labels)
         
-        # Save the figure if a filename is provided
-        if filename:
-            plt.savefig(f"{filename}.png", format="PNG", dpi=300, bbox_inches='tight')
-            print(f"Network visualization saved to {filename}.png")
+        # Set title if provided
+        if title:
+            plt.title(title)
+        else:
+            plt.title("Propagation Network")
             
+        plt.axis('off')
+        plt.tight_layout()
         plt.show() 
