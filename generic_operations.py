@@ -1,83 +1,107 @@
 from nothing import NOTHING
 from interval import Interval, add_intervals, sub_intervals, mul_intervals, div_intervals, to_interval
-
+from multipledispatch import dispatch
 ###----------------------------GENERIC OPERATIONS----------------------------###
 
-# Define generic operations that can handle different types of partial information
+# We use dispatch to handle different arguments
+
+###----------------------------ADDITION----------------------------###
+@dispatch(Interval, Interval)
 def generic_add(x, y):
-    """Generic addition operation."""
-    # Handle intervals
-    if isinstance(x, Interval) and isinstance(y, Interval):
-        return add_intervals(x, y)
-    # Handle raw numbers
-    elif isinstance(x, (int, float)) and isinstance(y, (int, float)):
-        return x + y
-    # Handle mixed cases by converting to intervals
-    elif isinstance(x, Interval) or isinstance(y, Interval):
-        if not isinstance(x, Interval):
-            x = to_interval(x)
-        if not isinstance(y, Interval):
-            y = to_interval(y)
-        return add_intervals(x, y)
-    else:
-        raise TypeError(f"Cannot add {type(x)} and {type(y)}")
+    """Generic addition for two intervals."""
+    return add_intervals(x, y)
 
+@dispatch(int, int)
+@dispatch(float, float)
+@dispatch(int, float)
+@dispatch(float, int)
+def generic_add(x, y):
+    """Generic addition for two numbers."""
+    return x + y
+
+@dispatch(Interval, (int, float))
+def generic_add(x, y):
+    """Generic addition for an interval and a number."""
+    return add_intervals(x, to_interval(y))
+
+@dispatch((int, float), Interval)
+def generic_add(x, y):
+    """Generic addition for a number and an interval."""
+    return add_intervals(to_interval(x), y)
+
+###----------------------------SUBTRACTION----------------------------###
+@dispatch(Interval, Interval)
 def generic_subtract(x, y):
-    """Generic subtraction operation."""
-    # Handle intervals
-    if isinstance(x, Interval) and isinstance(y, Interval):
-        return sub_intervals(x, y)
-    # Handle raw numbers
-    elif isinstance(x, (int, float)) and isinstance(y, (int, float)):
-        return x - y
-    # Handle mixed cases by converting to intervals
-    elif isinstance(x, Interval) or isinstance(y, Interval):
-        if not isinstance(x, Interval):
-            x = to_interval(x)
-        if not isinstance(y, Interval):
-            y = to_interval(y)
-        return sub_intervals(x, y)
-    else:
-        raise TypeError(f"Cannot subtract {type(x)} and {type(y)}")
+    """Generic subtraction for two intervals."""
+    return sub_intervals(x, y)
 
+@dispatch(int, int)
+@dispatch(float, float)
+@dispatch(int, float)
+@dispatch(float, int)
+def generic_subtract(x, y):
+    """Generic subtraction for two numbers."""
+    return x - y
+
+@dispatch(Interval, (int, float))
+def generic_subtract(x, y):
+    """Generic subtraction for an interval and a number."""
+    return sub_intervals(x, to_interval(y))
+
+@dispatch((int, float), Interval)
+def generic_subtract(x, y):
+    """Generic subtraction for a number and an interval."""
+    return sub_intervals(to_interval(x), y)
+
+###----------------------------MULTIPLICATION----------------------------###
+@dispatch(Interval, Interval)
 def generic_multiply(x, y):
-    """Generic multiplication operation."""
-    # Handle intervals
-    if isinstance(x, Interval) and isinstance(y, Interval):
-        return mul_intervals(x, y)
-    # Handle raw numbers
-    elif isinstance(x, (int, float)) and isinstance(y, (int, float)):
-        return x * y
-    # Handle mixed cases by converting to intervals
-    elif isinstance(x, Interval) or isinstance(y, Interval):
-        if not isinstance(x, Interval):
-            x = to_interval(x)
-        if not isinstance(y, Interval):
-            y = to_interval(y)
-        return mul_intervals(x, y)
-    else:
-        raise TypeError(f"Cannot multiply {type(x)} and {type(y)}")
+    """Generic multiplication for two intervals."""
+    return mul_intervals(x, y)
 
+@dispatch(int, int)
+@dispatch(float, float)
+@dispatch(int, float)
+@dispatch(float, int)
+def generic_multiply(x, y):
+    """Generic multiplication for two numbers."""
+    return x * y
+
+@dispatch(Interval, (int, float))
+def generic_multiply(x, y):
+    """Generic multiplication for an interval and a number."""
+    return mul_intervals(x, to_interval(y))
+
+@dispatch((int, float), Interval)
+def generic_multiply(x, y):
+    """Generic multiplication for a number and an interval."""
+    return mul_intervals(to_interval(x), y)
+
+###----------------------------DIVISION----------------------------###
+@dispatch(Interval, Interval)
 def generic_divide(x, y):
-    """Generic division operation."""
-    # Handle division by zero
-    if isinstance(y, (int, float)) and y == 0: 
+    """Generic division for two intervals."""
+    return div_intervals(x, y)
+
+@dispatch((int, float), int)
+@dispatch((int, float), float)
+def generic_divide(x, y):
+    """Generic division for two numbers."""
+    if y == 0:
         return NOTHING
-    # Handle intervals
-    if isinstance(x, Interval) and isinstance(y, Interval):
-        return div_intervals(x, y)
-    # Handle raw numbers
-    elif isinstance(x, (int, float)) and isinstance(y, (int, float)):
-        return x / y
-    # Handle mixed cases by converting to intervals
-    elif isinstance(x, Interval) or isinstance(y, Interval):
-        if not isinstance(x, Interval):
-            x = to_interval(x)
-        if not isinstance(y, Interval):
-            y = to_interval(y)
-        return div_intervals(x, y)
-    else:
-        raise TypeError(f"Cannot divide {type(x)} and {type(y)}")
+    return x / y
+
+@dispatch(Interval, (int, float))
+def generic_divide(x, y):
+    """Generic division for an interval and a number."""
+    if y == 0:
+        return NOTHING
+    return div_intervals(x, to_interval(y))
+
+@dispatch((int, float), Interval)
+def generic_divide(x, y):
+    """Generic division for a number and an interval."""
+    return div_intervals(to_interval(x), y)
 
 ###----------------------------PARTIAL INFORMATION HANDLING----------------------------###
 
@@ -131,3 +155,11 @@ def nary_unpacking(function):
         wrapped.__name__ = function.__name__
     
     return wrapped
+
+###----------------------------MERGE----------------------------###
+
+@dispatch(object, object)
+def generic_merge(content, increment):
+    """Generic merge implementation delegating to cell.merge."""
+    from cell import merge
+    return merge(content, increment)

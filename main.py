@@ -4,6 +4,11 @@ from tests import (
     test_multiplier_propagator,
     visualize_fahrenheit_celsius
 )
+from tms_tests import (
+    test_tms_basic,
+    test_tms_contradiction,
+    test_tms_visualize
+)
 from network_repl import PropNetworkREPL
 import sys
 
@@ -13,6 +18,12 @@ def run_all_tests():
     test_fahrenheit_celsius_converter()
     test_adder_propagator()
     test_multiplier_propagator()
+    
+    # Run TMS tests
+    test_tms_basic()
+    test_tms_contradiction()
+    test_tms_visualize()
+    
     print("\nAll tests completed.")
 
 if __name__ == "__main__":

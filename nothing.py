@@ -1,3 +1,5 @@
+from interval import Interval
+
 ###----------------------------NOTHING OBJECT----------------------------###
 
 class Nothing:
@@ -26,7 +28,5 @@ def contradictory(thing):
     Currently only checks for THE_CONTRADICTION sentinel, but can be
     extended for other types that might represent contradictions.
     """
-    from interval import Interval  # Import here to avoid circular imports
-    
     return thing is THE_CONTRADICTION or (
         isinstance(thing, Interval) and thing.is_empty()) 

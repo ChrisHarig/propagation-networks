@@ -27,8 +27,15 @@ class GraphVisualizer:
         cell_id = cell.name or str(id(cell))
         self.graph.add_edge(prop_id, cell_id)
         
-    def draw(self, title=None):
-        """Draw the current network graph."""
+    def draw(self, title=None, simplify_values=False):
+        """
+        Draw the current network graph.
+        
+        Args:
+            title: Optional title for the graph
+            simplify_values: If True, attempt to extract and display only the core value
+                             when cell content is a complex object
+        """
         plt.figure(figsize=(12, 8))
         
         # Create position layout
@@ -49,9 +56,23 @@ class GraphVisualizer:
         # Draw edges
         nx.draw_networkx_edges(self.graph, pos)
         
-        # Draw labels
-        cell_labels = {n: f"{n}\n{self.graph.nodes[n].get('content', '')}" 
-                      for n in cell_nodes}
+        # Draw labels - simplify values if requested
+        cell_labels = {}
+        for n in cell_nodes:
+            content = self.graph.nodes[n].get('content', '')
+            if simplify_values and hasattr(content, 'value'):
+                # For complex objects that have a 'value' attribute
+                try:
+                    # Try to access the value attribute
+                    display_content = str(content.value)
+                except:
+                    # Fall back to the full string representation
+                    display_content = str(content)
+            else:
+                display_content = str(content)
+            
+            cell_labels[n] = f"{n}\n{display_content}"
+        
         nx.draw_networkx_labels(self.graph, pos, labels=cell_labels)
         
         prop_labels = {n: n for n in prop_nodes}
