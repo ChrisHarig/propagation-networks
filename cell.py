@@ -1,6 +1,8 @@
 from nothing import NOTHING, THE_CONTRADICTION, contradictory
 from propagator import alert_propagators
 from multipledispatch import dispatch
+from merge import merge
+from tms import is_v_and_s, ValueWithSupport, TMS
 
 # Add global visualizer variable at the top of the file
 _visualizer = None
@@ -40,42 +42,64 @@ class Cell:
         Add new content to this cell, merging with existing content.
         
         Args:
-            increment: New information to be added to the cell.
-            
-        Raises:
-            ValueError: If the new content contradicts existing content.
+            increment: The new content to add to this cell.
         """
-        # If we have nothing, just set the content directly
-        old_value = self._content
+        from nothing import NOTHING, contradictory
+        from merge import merge
+        from tms import TMS, is_v_and_s
         
-        if old_value is NOTHING:
-            self._content = increment
-            self._alert_propagators()
-            # Notify visualizer if available
-            if _visualizer and increment is not NOTHING:
-                _visualizer.on_cell_updated(self, old_value, increment)
+        # Nothing is a no-op
+        if increment is NOTHING:
             return
         
-        # Otherwise, we need to merge the new content with the existing content
-        from generic_operations import generic_merge
-        merged = generic_merge(old_value, increment)
+        # Handle TMS values specially
+        if isinstance(increment, TMS) or isinstance(self._content, TMS):
+            merged = merge(self._content, increment)
+            
+            # Check for contradictions
+            if contradictory(merged):
+                raise ValueError(f"Contradiction in cell {self.name}: cannot merge {self._content} with {increment}")
+            
+            # Update content and alert propagators if changed
+            if merged != self._content:
+                old_content = self._content
+                self._content = merged
+                if _visualizer:
+                    _visualizer.on_cell_updated(self, old_content, merged)
+                self._alert_propagators()
+            return
+        
+        # Handle ValueWithSupport values
+        if is_v_and_s(increment) or is_v_and_s(self._content):
+            merged = merge(self._content, increment)
+            
+            # Check for contradictions
+            if contradictory(merged):
+                raise ValueError(f"Contradiction in cell {self.name}: cannot merge {self._content} with {increment}")
+            
+            # Update content and alert propagators if changed
+            if merged != self._content:
+                old_content = self._content
+                self._content = merged
+                if _visualizer:
+                    _visualizer.on_cell_updated(self, old_content, merged)
+                self._alert_propagators()
+            return
+        
+        # Regular case (non-TMS, non-ValueWithSupport)
+        merged = merge(self._content, increment)
         
         # Check for contradictions
         if contradictory(merged):
-            raise ValueError(f"Contradiction in cell {self.name or 'unnamed'}: " +
-                          f"Cannot merge {old_value} with {increment}")
+            raise ValueError(f"Contradiction in cell {self.name}: cannot merge {self._content} with {increment}")
         
-        # If nothing changed, we're done
-        if merged == old_value:
-            return
-        
-        # Otherwise, update the content and alert propagators
-        self._content = merged
-        self._alert_propagators()
-        
-        # Notify visualizer if available
-        if _visualizer:
-            _visualizer.on_cell_updated(self, old_value, merged)
+        # Update content and alert propagators if changed
+        if merged != self._content:
+            old_content = self._content
+            self._content = merged
+            if _visualizer:
+                _visualizer.on_cell_updated(self, old_content, merged)
+            self._alert_propagators()
     
     def new_neighbor(self, propagator):
         """Add a propagator as a neighbor of this cell."""
@@ -97,74 +121,3 @@ def make_cell(name=None):
     if _visualizer:
         _visualizer.on_cell_created(cell)
     return cell
-
-###----------------------------MERGE LOGIC----------------------------###
-
-# Base merge function that delegates to the appropriate implementation
-def merge(content, increment):
-    """
-    Generic merge function for combining partial information.
-    
-    This is the main extension point for different types of partial information.
-    The contract is:
-    - If increment adds no new information, return content exactly (by identity)
-    - If increment contradicts content, return THE_CONTRADICTION
-    - If increment supersedes content, return increment exactly
-    - Otherwise, return a new merged value
-    """
-    # Special case for NOTHING - handle outside of dispatch system
-    if content is NOTHING or increment is NOTHING:
-        return increment if content is NOTHING else content
-    
-    # Use the dispatch system for other cases
-    return _merge_dispatch(content, increment)
-
-# Multiple dispatch implementations for different type combinations
-@dispatch(object, object)
-def _merge_dispatch(content, increment):
-    """Default implementation for types without a specific handler."""
-    if content == increment:
-        return content
-    else:
-        return THE_CONTRADICTION
-
-@dispatch('Interval', 'Interval')
-def _merge_dispatch(content, increment):
-    """Merge two intervals by finding their intersection."""
-    from interval import Interval
-    
-    # Use the intersection of the two intervals
-    new_interval = Interval.intersect(content, increment)
-    if new_interval.is_empty():
-        return THE_CONTRADICTION
-    
-    # Check if the result is exactly one of the inputs
-    tolerance = 1e-9
-    if (abs(new_interval.low - content.low) < tolerance and 
-        abs(new_interval.high - content.high) < tolerance):
-        return content
-    if (abs(new_interval.low - increment.low) < tolerance and 
-        abs(new_interval.high - increment.high) < tolerance):
-        return increment
-    
-    return new_interval
-
-@dispatch('Interval', (int, float))
-def _merge_dispatch(content, increment):
-    """Merge an interval with a number."""
-    if content.low <= increment <= content.high:
-        # The number is consistent with the interval
-        return increment
-    else:
-        # The number is outside the interval - contradiction
-        return THE_CONTRADICTION
-
-@dispatch((int, float), 'Interval')
-def _merge_dispatch(content, increment):
-    """Merge a number with an interval."""
-    if increment.low <= content <= increment.high:
-        # The number is consistent with the interval
-        return content
-    else:
-        # The number is outside the interval - contradiction
-        return THE_CONTRADICTION

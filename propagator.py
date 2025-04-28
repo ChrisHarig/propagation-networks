@@ -3,6 +3,11 @@ from nothing import NOTHING
 # Add global visualizer variable at the top of the file
 _visualizer = None
 
+# Global registry of propagators that have ever been alerted
+# Using a dictionary as Python's equivalent of a hash table
+_propagators_ever_alerted = {}
+_propagators_ever_alerted_list = []
+
 def set_visualizer(visualizer):
     """Set the global visualizer for propagators."""
     global _visualizer
@@ -60,14 +65,32 @@ class Propagator:
 def make_propagator(to_do, neighbors, name=None):
     """Factory function to create a new propagator."""
     prop = Propagator(to_do, neighbors, name)
+    
     if _visualizer:
         _visualizer.on_propagator_created(prop)
     return prop
+
+def register_alerted_propagator(propagator):
+    """
+    Register a propagator as having been alerted.
+    This follows the paper's implementation of tracking propagators
+    that have ever been alerted.
+    """
+    global _propagators_ever_alerted, _propagators_ever_alerted_list
+    
+    # Only add to the registry if it's not already there
+    if propagator not in _propagators_ever_alerted:
+        _propagators_ever_alerted[propagator] = True
+        _propagators_ever_alerted_list.append(propagator)
 
 def alert_propagator(propagator):
     """
     Alert a single propagator that a cell's content has changed.
     """
+    # Register this propagator as having been alerted
+    register_alerted_propagator(propagator)
+    
+    # Run the propagator
     propagator.alert()
 
 def alert_propagators(propagators):
@@ -106,3 +129,20 @@ def function_to_propagator_constructor(f):
         return make_propagator(operation, cells, name=f.__name__ if hasattr(f, '__name__') else None)
     
     return constructor 
+
+def alert_all_propagators():
+    """
+    Alert all propagators in the system.
+    
+    This is used when the worldview changes to ensure all
+    propagators get a chance to recompute based on the new worldview.
+    """
+    global _propagators_ever_alerted_list
+    
+    if not _propagators_ever_alerted_list:
+        print("Warning: No propagators have been alerted yet.")
+        return
+        
+    print(f"Alerting all {len(_propagators_ever_alerted_list)} registered propagators...")
+    for propagator in _propagators_ever_alerted_list:
+        propagator.alert()  # Direct call to alert to avoid re-registration 

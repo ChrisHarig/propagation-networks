@@ -1,4 +1,6 @@
-from interval import Interval
+"""
+Defines concepts of nothingness and contradiction for the propagation network.
+"""
 
 ###----------------------------NOTHING OBJECT----------------------------###
 
@@ -25,8 +27,14 @@ def contradictory(thing):
     """
     Generic function to check if something represents a contradiction.
     
-    Currently only checks for THE_CONTRADICTION sentinel, but can be
-    extended for other types that might represent contradictions.
+    Uses duck typing to check for contradictions (either is THE_CONTRADICTION
+    or has an is_empty method that returns True).
     """
-    return thing is THE_CONTRADICTION or (
-        isinstance(thing, Interval) and thing.is_empty()) 
+    if thing is THE_CONTRADICTION:
+        return True
+    
+    # Use duck typing instead of explicit type checking
+    if hasattr(thing, 'is_empty') and callable(thing.is_empty):
+        return thing.is_empty()
+    
+    return False 

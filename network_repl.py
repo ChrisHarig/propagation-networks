@@ -1,12 +1,14 @@
 from cell import make_cell
 from propagator import make_propagator
 from graph_visualizer import GraphVisualizer
+from tms import make_premise, supported_value
 import sys
 
 class PropNetworkREPL:
     def __init__(self):
         self.cells = {}
         self.propagators = {}
+        self.premises = {}
         self.visualizer = GraphVisualizer()
         self._setup_visualizer()
         
@@ -35,6 +37,11 @@ class PropNetworkREPL:
         print("  sub <cell1> <cell2> <out> - Create subtractor: out = cell1 - cell2")
         print("  mul <cell1> <cell2> <out> - Create multiplier: out = cell1 * cell2")
         print("  div <cell1> <cell2> <out> - Create divider: out = cell1 / cell2")
+        
+        print("\nTruth Maintenance System (TMS):")
+        print("  new_premise <name>        - Create a new premise")
+        print("  set_supported <cell> <value> <premise1> [premise2 ...] - Set cell with premise support")
+        print("  premises                  - List all premises")
         
         print("\nVisualization:")
         print("  show                      - Visualize current network")
@@ -77,6 +84,21 @@ class PropNetworkREPL:
                 print("Usage: set <cell> <value>")
                 return
             self._set_cell_value(args[0], args[1])
+            
+        elif cmd == "set_supported":
+            if len(args) < 3:
+                print("Usage: set_supported <cell> <value> <premise1> [premise2 ...]")
+                return
+            self._set_supported_cell_value(args[0], args[1], args[2:])
+            
+        elif cmd == "new_premise":
+            if len(args) != 1:
+                print("Usage: new_premise <name>")
+                return
+            self._create_premise(args[0])
+            
+        elif cmd == "premises":
+            self._list_premises()
             
         elif cmd == "get":
             if len(args) != 1:
@@ -194,6 +216,71 @@ class PropNetworkREPL:
         
         # Show the updated network state
         self._show_network_effects()
+
+    def _set_supported_cell_value(self, cell_name, value, premise_names):
+        """Set a cell's value with specified premise support."""
+        if cell_name not in self.cells:
+            print(f"Cell '{cell_name}' not found")
+            return
+        
+        # Check if all premises exist
+        premises = []
+        for p_name in premise_names:
+            if p_name not in self.premises:
+                print(f"Premise '{p_name}' not found. Create it with 'new_premise {p_name}'")
+                return
+            premises.append(self.premises[p_name])
+        
+        try:
+            # Handle interval notation similar to _set_cell_value
+            if value.startswith('[') and value.endswith(']'):
+                interval_parts = value[1:-1].split(',')
+                if len(interval_parts) != 2:
+                    raise ValueError("Interval must have exactly two values [low,high]")
+                
+                low = float(interval_parts[0].strip())
+                high = float(interval_parts[1].strip())
+                
+                from interval import Interval
+                interval_value = Interval(low, high)
+                supported = supported_value(interval_value, premises)
+                self.cells[cell_name].add_content(supported)
+                print(f"Set {cell_name} = {interval_value} supported by {', '.join(premise_names)}")
+            else:
+                # Handle regular numeric values
+                value = float(value)
+                supported = supported_value(value, premises)
+                self.cells[cell_name].add_content(supported)
+                print(f"Set {cell_name} = {value} supported by {', '.join(premise_names)}")
+            
+            self._show_network_effects()
+        except ValueError as e:
+            print(f"Error setting value: {str(e)}")
+
+    def _create_premise(self, name):
+        """Create a new premise with the given name."""
+        if name in self.premises:
+            print(f"Premise '{name}' already exists")
+            return
+        
+        premise = make_premise(name)
+        self.premises[name] = premise
+        print(f"Created premise: {name}")
+
+    def _list_premises(self, verbose=True):
+        """List all premises in the system."""
+        if verbose:
+            print("\nAvailable premises:")
+        
+        if not self.premises:
+            if verbose:
+                print("  No premises defined")
+            return
+        
+        for name, premise in self.premises.items():
+            if verbose:
+                print(f"  {name}")
+        
 
 if __name__ == "__main__":
     repl = PropNetworkREPL()

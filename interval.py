@@ -1,5 +1,8 @@
+"""
+Interval arithmetic for the propagation network.
+"""
+
 import math
-from nothing import NOTHING, THE_CONTRADICTION
 
 ###----------------------------INTERVAL CLASS----------------------------###
 
@@ -102,9 +105,9 @@ def div_intervals(i1, i2):
             print(f"Warning: Division by zero interval {i2} attempted.")
             return EMPTY_INTERVAL
         print(f"Warning: Division by interval {i2} containing zero.")
-        # For simplicity, we'll return a very wide interval
-        return Interval(-float('inf'), float('inf'))
-
+        # Use NOTHING to signal this case to the caller
+        from nothing import NOTHING
+        return NOTHING
+    
     reciprocal_i2 = Interval(1.0 / i2.high, 1.0 / i2.low)
-
     return mul_intervals(i1, reciprocal_i2) 

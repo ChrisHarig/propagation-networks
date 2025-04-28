@@ -30,9 +30,10 @@ There are two ways to use this implementation:
 -How should we handle constants in cells that should not change? Should we at all? (Sparked by div by 0 error) 
 -How do we graph these networks in a live view? 
 -What issues arise with chaining propagator commands? 
--How and to which generics should we extend our system to support? 
--How do we implement TMS and worldviews? 
+-How and to which generics should we extend our system to support?  
 -How do we visualize TMS and what details do we want available to user? 
+-Do premises need ID's and are there side effects to them having ID's? 
+-Why do we maintain a list of propagators that have been alerted before and not just all props? 
 
 ## References
 

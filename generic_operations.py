@@ -1,6 +1,9 @@
 from nothing import NOTHING
-from interval import Interval, add_intervals, sub_intervals, mul_intervals, div_intervals, to_interval
+from interval import Interval, add_intervals, sub_intervals, mul_intervals, div_intervals, to_interval, EMPTY_INTERVAL
 from multipledispatch import dispatch
+from tms import is_v_and_s, ValueWithSupport, supported, generic_flatten
+from merge import merge
+
 ###----------------------------GENERIC OPERATIONS----------------------------###
 
 # We use dispatch to handle different arguments
@@ -29,6 +32,27 @@ def generic_add(x, y):
     """Generic addition for a number and an interval."""
     return add_intervals(to_interval(x), y)
 
+@dispatch(ValueWithSupport, ValueWithSupport)
+def generic_add(x, y):
+    """Add two ValueWithSupport objects."""
+    result_value = generic_add(x.value, y.value)
+    # Combine the supports
+    from merge import merge_supports
+    result_support = merge_supports(x, y)
+    return ValueWithSupport(result_value, result_support)
+
+@dispatch(ValueWithSupport, object)
+def generic_add(x, y):
+    """Add a ValueWithSupport to a regular value."""
+    result_value = generic_add(x.value, y)
+    return ValueWithSupport(result_value, x.support)
+
+@dispatch(object, ValueWithSupport)
+def generic_add(x, y):
+    """Add a regular value to a ValueWithSupport."""
+    result_value = generic_add(x, y.value)
+    return ValueWithSupport(result_value, y.support)
+
 ###----------------------------SUBTRACTION----------------------------###
 @dispatch(Interval, Interval)
 def generic_subtract(x, y):
@@ -53,6 +77,23 @@ def generic_subtract(x, y):
     """Generic subtraction for a number and an interval."""
     return sub_intervals(to_interval(x), y)
 
+@dispatch(ValueWithSupport, ValueWithSupport)
+def generic_subtract(x, y):
+    result_value = generic_subtract(x.value, y.value)
+    from merge import merge_supports
+    result_support = merge_supports(x, y)
+    return ValueWithSupport(result_value, result_support)
+
+@dispatch(ValueWithSupport, object)
+def generic_subtract(x, y):
+    result_value = generic_subtract(x.value, y)
+    return ValueWithSupport(result_value, x.support)
+
+@dispatch(object, ValueWithSupport)
+def generic_subtract(x, y):
+    result_value = generic_subtract(x, y.value)
+    return ValueWithSupport(result_value, y.support)
+
 ###----------------------------MULTIPLICATION----------------------------###
 @dispatch(Interval, Interval)
 def generic_multiply(x, y):
@@ -76,6 +117,23 @@ def generic_multiply(x, y):
 def generic_multiply(x, y):
     """Generic multiplication for a number and an interval."""
     return mul_intervals(to_interval(x), y)
+
+@dispatch(ValueWithSupport, ValueWithSupport)
+def generic_multiply(x, y):
+    result_value = generic_multiply(x.value, y.value)
+    from merge import merge_supports
+    result_support = merge_supports(x, y)
+    return ValueWithSupport(result_value, result_support)
+
+@dispatch(ValueWithSupport, object)
+def generic_multiply(x, y):
+    result_value = generic_multiply(x.value, y)
+    return ValueWithSupport(result_value, x.support)
+
+@dispatch(object, ValueWithSupport)
+def generic_multiply(x, y):
+    result_value = generic_multiply(x, y.value)
+    return ValueWithSupport(result_value, y.support)
 
 ###----------------------------DIVISION----------------------------###
 @dispatch(Interval, Interval)
@@ -103,25 +161,67 @@ def generic_divide(x, y):
     """Generic division for a number and an interval."""
     return div_intervals(to_interval(x), y)
 
+@dispatch(ValueWithSupport, ValueWithSupport)
+def generic_divide(x, y):
+    result_value = generic_divide(x.value, y.value)
+    from merge import merge_supports
+    result_support = merge_supports(x, y)
+    return ValueWithSupport(result_value, result_support)
+
+@dispatch(ValueWithSupport, object)
+def generic_divide(x, y):
+    result_value = generic_divide(x.value, y)
+    return ValueWithSupport(result_value, x.support)
+
+@dispatch(object, ValueWithSupport)
+def generic_divide(x, y):
+    result_value = generic_divide(x, y.value)
+    return ValueWithSupport(result_value, y.support)
+
 ###----------------------------PARTIAL INFORMATION HANDLING----------------------------###
 
 def generic_bind(value, continuation):
     """
-    Binds a value to a continuation function, handling partial information.
-    
-    Args:
-        value: The value to bind (may be partial information)
-        continuation: A function to apply to the unpacked value
-        
-    Returns:
-        The result of applying the continuation to the unpacked value
+    Binds a value to a continuation function, handling partial information and TMS.
     """
-    # For now, we only handle NOTHING and regular values
+    from nothing import NOTHING
+    from tms import generic_flatten, is_v_and_s, ValueWithSupport
+    
+    # Handle NOTHING case first
     if value is NOTHING:
         return NOTHING
-    else:
-        # For regular values, just apply the continuation
-        return continuation(value)
+    
+    # Handle ValueWithSupport
+    if is_v_and_s(value):
+        # Flatten any nested ValueWithSupport objects
+        flattened = generic_flatten(value)
+        
+        # Extract the actual value, ensuring it's not another ValueWithSupport
+        inner_value = flattened.value
+        
+        # Make sure we're not passing a ValueWithSupport to the continuation
+        # This is the key fix to prevent recursion
+        while is_v_and_s(inner_value):
+            inner_value = inner_value.value
+        
+        # Apply the continuation to the fully unwrapped inner value
+        result = continuation(inner_value)
+        
+        # If the result is NOTHING, return NOTHING
+        if result is NOTHING:
+            return NOTHING
+        
+        # If the result is already a ValueWithSupport, merge the supports
+        if is_v_and_s(result):
+            from merge import merge_supports
+            result_support = merge_supports(flattened, result)
+            return ValueWithSupport(result.value, result_support)
+        
+        # Otherwise, return a new ValueWithSupport with the original support
+        return ValueWithSupport(result, flattened.support)
+    
+    # For regular values, just apply the continuation
+    return continuation(value)
 
 def nary_unpacking(function):
     """

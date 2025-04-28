@@ -60,7 +60,22 @@ class GraphVisualizer:
         cell_labels = {}
         for n in cell_nodes:
             content = self.graph.nodes[n].get('content', '')
-            if simplify_values and hasattr(content, 'value'):
+            
+            # Handle ValueWithSupport objects
+            if 'supported by' in content:
+                # Try to parse out the value and support
+                try:
+                    # Very simple parsing - this can be improved
+                    parts = content.split(' supported by ')
+                    value_part = parts[0]
+                    support_part = parts[1]
+                    
+                    # Display in a more compact form
+                    display_content = f"{value_part}\nSupport: {support_part}"
+                except:
+                    # If parsing fails, just use the original content
+                    display_content = content
+            elif simplify_values and hasattr(content, 'value'):
                 # For complex objects that have a 'value' attribute
                 try:
                     # Try to access the value attribute
