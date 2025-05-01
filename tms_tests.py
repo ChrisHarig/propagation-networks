@@ -155,8 +155,54 @@ def test_tms_temperature_converter():
     print(f"F: {tms_query(fahrenheit.content())}")
     print(f"C: {tms_query(celsius.content())}")
 
+def test_tms_visualize():
+    """Test visualization of a TMS network."""
+    print("\n=== Testing TMS Visualization ===")
+    
+    # Create cells and set up a sum constraint
+    a = make_cell("A")
+    b = make_cell("B")
+    c = make_cell("C")
+    sum_constraint(a, b, c)
+    
+    # Create premises and add supported values
+    p1 = make_premise("P1")
+    p2 = make_premise("P2")
+    
+    print("Adding A=5 supported by P1")
+    a.add_content(supported_value(5, [p1]))
+    
+    print("Adding B=10 supported by P2")
+    b.add_content(supported_value(10, [p2]))
+    
+    # Check the result
+    c_content = c.content()
+    print(f"C value: {c_content}")
+    
+    # Visualize the network if visualization is enabled
+    try:
+        from graph_visualizer import GraphVisualizer
+        import propagator
+        import cell
+        
+        visualizer = GraphVisualizer()
+        propagator.set_visualizer(visualizer)
+        cell.set_visualizer(visualizer)
+        
+        # Draw the network
+        visualizer.draw("TMS Network Example")
+        
+        # Disable visualization
+        propagator.set_visualizer(None)
+        cell.set_visualizer(None)
+        
+        print("Network visualization displayed")
+    except Exception as e:
+        print(f"Visualization skipped: {e}")
+
 if __name__ == "__main__":
     test_tms_basic()
     test_tms_contradiction()
     test_tms_worldview()
-    test_tms_temperature_converter() 
+    test_tms_temperature_converter()
+    test_tms_visualize() 

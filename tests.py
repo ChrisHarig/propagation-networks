@@ -130,6 +130,36 @@ def visualize_network():
     propagator.set_visualizer(None)
     cell.set_visualizer(None)
 
+def visualize_fahrenheit_celsius():
+    """Create and visualize a Fahrenheit-Celsius converter network."""
+    print("\n=== Visualizing Fahrenheit-Celsius Converter ===")
+    
+    # Enable visualization
+    visualizer = GraphVisualizer()
+    import propagator
+    import cell
+    propagator.set_visualizer(visualizer)
+    cell.set_visualizer(visualizer)
+    
+    # Create a temperature converter
+    f = make_cell("Fahrenheit")
+    c = make_cell("Celsius")
+    fahrenheit_celsius_converter(f, c)
+    
+    # Set a value
+    f.add_content(212)
+    
+    # Display results
+    print(f"F: {f.content()} (Expected: 212)")
+    print(f"C: {c.content()} (Expected: 100)")
+    
+    # Draw the network
+    visualizer.draw("Fahrenheit-Celsius Converter")
+    
+    # Disable visualization
+    propagator.set_visualizer(None)
+    cell.set_visualizer(None)
+
 if __name__ == "__main__":
     test_fahrenheit_celsius_converter()
     test_constraint_propagators()

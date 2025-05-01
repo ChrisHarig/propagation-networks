@@ -5,7 +5,9 @@ This module implements support for tracking the premises that justify
 values in the propagation network.
 """
 
-# Global worldview - set of premises that are currently believed
+
+###-----------------------------------GLOBAL WORLDVIEW-----------------------------------###
+
 _current_worldview = set()
 
 def premise_in(premise):
@@ -43,29 +45,23 @@ def bring_in(premise):
     """Add a premise to the current worldview."""
     global _current_worldview
     
+    from propagator import alert_all_propagators
     # If the premise is already in, do nothing
     if premise_in(premise):
         return
-        
-    # If the premise is a string, find the actual premise with that name
-    if isinstance(premise, str):
-        from propagator import alert_all_propagators
-        # We'd need to find the premise object by name
-        # This is a simplification; in a real system we'd have a registry
-        # For now, we'll just alert propagators
-        alert_all_propagators()
     else:
         _current_worldview.add(premise)
         from propagator import alert_all_propagators
         alert_all_propagators()
 
-# Initialize all premises to be believed by default
+# Initialize premise to be believed by default (no alert)
 def initialize_premise(premise):
     """Initialize a premise as believed by default."""
     global _current_worldview
     _current_worldview.add(premise)
     return premise
 
+###-----------------------------------PREMISE CLASS-----------------------------------###
 class Premise:
     """A premise is a fundamental assumption that can support a value."""
     
@@ -87,8 +83,14 @@ class Premise:
     
     def __repr__(self):
         return f"Premise({self.name})"
+    
+# Factory function for making premises that are believed by default (no alert)
+def make_premise(name=None):
+    """Factory function to create a new premise that is believed by default."""
+    premise = Premise(name)
+    return initialize_premise(premise) # do we want to believe a premise by default?
 
-
+###-----------------------------------SUPPORT CLASS-----------------------------------###
 class Support:
     """
     A set of premises that together justify a value.
@@ -124,36 +126,6 @@ class Support:
         return f"Support({repr(self.premises)})"
 
 
-class ValueWithSupport:
-    """
-    A container for a value along with the support that justifies it.
-    
-    This is the 'v&s' (value & support) structure described in the paper.
-    """
-    
-    def __init__(self, value, support=None):
-        """
-        Create a new value with support.
-        
-        Args:
-            value: The actual value.
-            support: The support for the value, or None to create an empty support.
-        """
-        self.value = value
-        self.support = support if support is not None else Support()
-    
-    def __str__(self):
-        return f"{self.value} supported by {self.support}"
-    
-    def __repr__(self):
-        return f"ValueWithSupport({repr(self.value)}, {repr(self.support)})"
-
-
-def supported(value, support):
-    """Factory function to create a ValueWithSupport."""
-    return ValueWithSupport(value, support)
-
-
 def implies(v1, v2):
     """
     Check if v1 implies v2 (v1 is more specific than or equal to v2).
@@ -172,65 +144,41 @@ def more_informative_support(s1, s2):
     """
     return s1.support.is_subset(s2.support) and len(s1.support.premises) < len(s2.support.premises)
 
+def merge_supports(support1, support2):
+    """Merge two supports, combining their premises."""
+    return support1.union(support2) 
 
-def is_v_and_s(obj):
-    """Check if an object is a ValueWithSupport."""
-    return isinstance(obj, ValueWithSupport)
+###-----------------------------------TMS CLASS-----------------------------------###
 
-
-# Create functions for working with premises
-def make_premise(name=None):
-    """Factory function to create a new premise that is believed by default."""
-    premise = Premise(name)
-    return initialize_premise(premise)
-
-
-def supported_value(value, premises=None):
+class TMS:
     """
-    Create a ValueWithSupport with the given value and premises.
+    A Truth Maintenance System (TMS) that contains a set of supported values.
     
-    Args:
-        value: The value to be supported.
-        premises: A list of premises that support the value.
-        
-    Returns:
-        A ValueWithSupport object.
+    This is the Python equivalent of the TMS record structure in the dissertation.
     """
-    if premises is None:
-        premises = []
-    return ValueWithSupport(value, Support(premises))
-
-
-def generic_flatten(thing):
-    """
-    Flatten nested ValueWithSupport objects, merging their supports.
     
-    This is the equivalent of the generic-flatten function from the paper.
-    """
-    if not is_v_and_s(thing):
-        return thing
+    def __init__(self, values=None):
+        """
+        Create a new TMS with an optional set of initial values.
         
-    # If the value inside is also a ValueWithSupport, flatten recursively
-    if is_v_and_s(thing.value):
-        # Get the inner value
-        inner_vs = thing.value
-        # Recursively flatten in case of multiple nesting
-        flattened = generic_flatten(inner_vs)
-        
-        # If the flattened result is still a ValueWithSupport,
-        # merge the supports and create a new ValueWithSupport
-        if is_v_and_s(flattened):
-            from merge import merge_supports
-            merged_support = merge_supports(thing, flattened)
-            return ValueWithSupport(flattened.value, merged_support)
-        else:
-            # Otherwise just add the original support to the flattened value
-            return ValueWithSupport(flattened, thing.support)
+        Args:
+            values: Optional list of ValueWithSupport objects.
+        """
+        self.values = values or []
     
-    # No nesting, just return the original
-    return thing 
+    def __str__(self):
+        if not self.values:
+            return "TMS([])"
+        return "TMS([" + ", ".join(str(v) for v in self.values) + "])"
+    
+    def __repr__(self):
+        return f"TMS({repr(self.values)})"
 
-def tms_query(value):
+def make_tms(values=None):
+    """Factory function to create a new TMS."""
+    return TMS(values) 
+
+def tms_query(value): #edit to support layered data
     """
     Get the most informative value supported by premises in the current worldview.
     
@@ -286,7 +234,7 @@ def tms_merge(tms1, tms2):
     # Finally, assimilate this consequence back into the candidate
     return tms_assimilate(candidate, consequence)
 
-def tms_assimilate(tms, stuff):
+def tms_assimilate(tms, stuff): #edit to support layered data
     """
     Incorporate values into a TMS without deducing consequences.
     
@@ -310,7 +258,7 @@ def tms_assimilate(tms, stuff):
     # Default case
     return tms
 
-def tms_assimilate_one(tms, v_and_s):
+def tms_assimilate_one(tms, v_and_s): #edit to support layered data
     """
     Add a single ValueWithSupport to a TMS, removing subsumed values.
     
@@ -326,7 +274,7 @@ def tms_assimilate_one(tms, v_and_s):
     # Create a new TMS with the new value and without subsumed values
     return [v_and_s] + [old_v_and_s for old_v_and_s in tms if old_v_and_s not in subsumed]
 
-def strongest_consequence(tms):
+def strongest_consequence(tms): #edit to support layered data
     """
     Find the most informative consequence of the current worldview.
     
@@ -344,31 +292,3 @@ def strongest_consequence(tms):
         result = merge(result, v_and_s)
     
     return result 
-
-class TMS:
-    """
-    A Truth Maintenance System (TMS) that contains a set of supported values.
-    
-    This is the Python equivalent of the TMS record structure in the dissertation.
-    """
-    
-    def __init__(self, values=None):
-        """
-        Create a new TMS with an optional set of initial values.
-        
-        Args:
-            values: Optional list of ValueWithSupport objects.
-        """
-        self.values = values or []
-    
-    def __str__(self):
-        if not self.values:
-            return "TMS([])"
-        return "TMS([" + ", ".join(str(v) for v in self.values) + "])"
-    
-    def __repr__(self):
-        return f"TMS({repr(self.values)})"
-
-def make_tms(values=None):
-    """Factory function to create a new TMS."""
-    return TMS(values) 

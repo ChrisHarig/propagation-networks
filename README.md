@@ -34,6 +34,8 @@ There are two ways to use this implementation:
 -How do we visualize TMS and what details do we want available to user? 
 -Do premises need ID's and are there side effects to them having ID's? 
 -Why do we maintain a list of propagators that have been alerted before and not just all props? 
+-Do we want all data to be layered? Should layered data without values for a layer exist?
+
 
 ## References
 

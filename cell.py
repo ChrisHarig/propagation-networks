@@ -69,7 +69,7 @@ class Cell:
                 self._alert_propagators()
             return
         
-        # Handle ValueWithSupport values
+        # Handle ValueWithSupport values - EDIT THIS TO SUPPORT LAYERED DATA
         if is_v_and_s(increment) or is_v_and_s(self._content):
             merged = merge(self._content, increment)
             

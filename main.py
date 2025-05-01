@@ -1,7 +1,6 @@
 from tests import (
     test_fahrenheit_celsius_converter,
-    test_adder_propagator,
-    test_multiplier_propagator,
+    test_constraint_propagators,
     visualize_fahrenheit_celsius
 )
 from tms_tests import (
@@ -16,8 +15,7 @@ def run_all_tests():
     """Run all tests for the propagator system."""
     print("Running all tests for the propagator system...\n")
     test_fahrenheit_celsius_converter()
-    test_adder_propagator()
-    test_multiplier_propagator()
+    test_constraint_propagators()  # This tests both adder and multiplier propagators
     
     # Run TMS tests
     test_tms_basic()
