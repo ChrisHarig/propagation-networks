@@ -34,8 +34,10 @@ There are two ways to use this implementation:
 -How do we visualize TMS and what details do we want available to user? 
 -Do premises need ID's and are there side effects to them having ID's? 
 -Why do we maintain a list of propagators that have been alerted before and not just all props? 
--Do we want all data to be layered? Should layered data without values for a layer exist?
-
+-Do we want all data to be layered? Should layered data without values for a layer exist? 
+-How should TMS's work now that we have support as layered data? 
+-Do we need to be able to construct layered procedures for functions that are not composites of current generics? Is generic bind involved? 
+-Is the implementation of generic bind and nary-unpacking redundant with layered datum? 
 
 ## References
 

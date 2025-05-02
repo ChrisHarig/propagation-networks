@@ -1,7 +1,7 @@
 from cell import make_cell
 from propagator import make_propagator
-from graph_visualizer import GraphVisualizer
-from tms import make_premise, supported_value
+from tms import make_premise, supported_value, kick_out, bring_in, premise_in, _current_worldview
+from layers import base_layer_value
 import sys
 
 class PropNetworkREPL:
@@ -9,20 +9,9 @@ class PropNetworkREPL:
         self.cells = {}
         self.propagators = {}
         self.premises = {}
-        self.visualizer = GraphVisualizer()
-        self._setup_visualizer()
         
-    def _setup_visualizer(self):
-        """Set up visualization for both cells and propagators to track network changes."""
-        import propagator
-        import cell
-        propagator.set_visualizer(self.visualizer)
-        cell.set_visualizer(self.visualizer)
-    
-    def run(self, use_visualization=True):
+    def run(self, use_visualization=False):
         """Start the propagation network REPL."""
-        self.use_visualization = use_visualization
-        
         print("Propagation Network Interactive Environment")
         print("\nAvailable commands:")
         
@@ -30,6 +19,7 @@ class PropNetworkREPL:
         print("  new_cell <name>           - Create a new cell")
         print("  set <cell> <value>        - Set a cell's value")
         print("  set <cell> [low,high]     - Set a cell to an interval")
+        print("  set_supported <cell> <value> <premise1> [premise2 ...] - Set cell with premise support")
         print("  get <cell>                - Get a cell's current value")
         
         print("\nPropagator operations:")
@@ -39,15 +29,13 @@ class PropNetworkREPL:
         print("  div <cell1> <cell2> <out> - Create divider: out = cell1 / cell2")
         
         print("\nTruth Maintenance System (TMS):")
-        print("  new_premise <name>        - Create a new premise")
-        print("  set_supported <cell> <value> <premise1> [premise2 ...] - Set cell with premise support")
         print("  premises                  - List all premises")
-        
-        print("\nVisualization:")
-        print("  show                      - Visualize current network")
-        print("  cells                     - List all cells and values")
+        print("  worldview                 - Show current worldview (active premises)")
+        print("  kick <premise_name>       - Remove a premise from worldview")
+        print("  bring <premise_name>      - Add a premise to worldview")
         
         print("\nOther:")
+        print("  cells                     - List all cells and values")
         print("  help                      - Show this help")
         print("  quit                      - Exit")
         
@@ -61,7 +49,7 @@ class PropNetworkREPL:
                 if cmd == "quit":
                     break
                 elif cmd == "help":
-                    self.run(use_visualization=self.use_visualization)  # Keep same visualization setting
+                    self.run()
                     continue
                 
                 self._handle_command(cmd, command[1:])
@@ -91,14 +79,23 @@ class PropNetworkREPL:
                 return
             self._set_supported_cell_value(args[0], args[1], args[2:])
             
-        elif cmd == "new_premise":
-            if len(args) != 1:
-                print("Usage: new_premise <name>")
-                return
-            self._create_premise(args[0])
-            
         elif cmd == "premises":
             self._list_premises()
+            
+        elif cmd == "worldview":
+            self._show_worldview()
+            
+        elif cmd == "kick":
+            if len(args) != 1:
+                print("Usage: kick <premise_name>")
+                return
+            self._kick_out_premise(args[0])
+            
+        elif cmd == "bring":
+            if len(args) != 1:
+                print("Usage: bring <premise_name>")
+                return
+            self._bring_in_premise(args[0])
             
         elif cmd == "get":
             if len(args) != 1:
@@ -111,12 +108,6 @@ class PropNetworkREPL:
                 print(f"Usage: {cmd} <cell1> <cell2> <output>")
                 return
             self._create_operation(cmd, args)
-            
-        elif cmd == "show":
-            if self.use_visualization:
-                self.visualizer.draw()
-            else:
-                print("Visualization is disabled. Run with --no_vis flag to enable.")
             
         elif cmd == "cells":
             self._list_cells()
@@ -159,12 +150,30 @@ class PropNetworkREPL:
             print(f"Cell '{cell_name}' not found")
             return
         value = self.cells[cell_name].content()
-        print(f"{cell_name}: {value}")
+        print(f"{cell_name}: {self._format_value(value)}")
+    
+    def _format_value(self, value):
+        """Format a value for display, handling layered data."""
+        if hasattr(value, 'get_layer_value') and hasattr(value, 'has_layer'):
+            # Get the base value
+            base = base_layer_value(value)
+            
+            # Build a string representing all the layers
+            layers = []
+            if value.has_layer('support'):
+                support = value.get_layer_value('support')
+                layers.append(f"support: {support}")
+            
+            if layers:
+                return f"{base} with {', '.join(layers)}"
+            return str(base)
+        return str(value)
     
     def _list_cells(self):
         print("\nCurrent cells:")
         for name, cell in self.cells.items():
-            print(f"{name}: {cell.content()}")
+            content = cell.content()
+            print(f"{name}: {self._format_value(content)}")
     
     def _show_network_effects(self):
         """Show how the network propagated values."""
@@ -223,12 +232,14 @@ class PropNetworkREPL:
             print(f"Cell '{cell_name}' not found")
             return
         
-        # Check if all premises exist
+        # Auto-create any premises that don't exist
         premises = []
         for p_name in premise_names:
             if p_name not in self.premises:
-                print(f"Premise '{p_name}' not found. Create it with 'new_premise {p_name}'")
-                return
+                # Create the premise automatically
+                premise = make_premise(p_name)
+                self.premises[p_name] = premise
+                print(f"Created premise: {p_name}")
             premises.append(self.premises[p_name])
         
         try:
@@ -257,16 +268,6 @@ class PropNetworkREPL:
         except ValueError as e:
             print(f"Error setting value: {str(e)}")
 
-    def _create_premise(self, name):
-        """Create a new premise with the given name."""
-        if name in self.premises:
-            print(f"Premise '{name}' already exists")
-            return
-        
-        premise = make_premise(name)
-        self.premises[name] = premise
-        print(f"Created premise: {name}")
-
     def _list_premises(self, verbose=True):
         """List all premises in the system."""
         if verbose:
@@ -280,7 +281,54 @@ class PropNetworkREPL:
         for name, premise in self.premises.items():
             if verbose:
                 print(f"  {name}")
+
+    def _show_worldview(self):
+        """Show all premises in the current worldview."""
+        print("\nCurrent worldview (active premises):")
         
+        if not _current_worldview:
+            print("  No premises are currently active")
+            return
+        
+        for premise in _current_worldview:
+            premise_name = premise.name if hasattr(premise, 'name') else str(premise)
+            print(f"  {premise_name}")
+
+    def _kick_out_premise(self, premise_name):
+        """Remove a premise from the current worldview."""
+        if premise_name not in self.premises:
+            print(f"Premise '{premise_name}' not found")
+            return
+        
+        # Check if the premise is in the worldview first
+        if not premise_in(premise_name):
+            print(f"Premise '{premise_name}' is not in the current worldview")
+            return
+        
+        # Kick out the premise
+        kick_out(premise_name)
+        print(f"Kicked out premise '{premise_name}' from the worldview")
+        
+        # Show the updated network state
+        self._show_network_effects()
+
+    def _bring_in_premise(self, premise_name):
+        """Add a premise to the current worldview."""
+        if premise_name not in self.premises:
+            print(f"Premise '{premise_name}' not found")
+            return
+        
+        # Check if the premise is already in the worldview
+        if premise_in(premise_name):
+            print(f"Premise '{premise_name}' is already in the worldview")
+            return
+        
+        # Bring in the premise
+        bring_in(self.premises[premise_name])
+        print(f"Brought in premise '{premise_name}' to the worldview")
+        
+        # Show the updated network state
+        self._show_network_effects()
 
 if __name__ == "__main__":
     repl = PropNetworkREPL()

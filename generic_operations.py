@@ -1,227 +1,251 @@
 from nothing import NOTHING
 from interval import Interval, add_intervals, sub_intervals, mul_intervals, div_intervals, to_interval, EMPTY_INTERVAL
 from multipledispatch import dispatch
-from tms import is_v_and_s, ValueWithSupport, supported, generic_flatten
+from tms import TMS
+from layers import make_layered_procedure, base_layer_value, support_layer_value, LayeredDatum
 from merge import merge
 
 ###----------------------------GENERIC OPERATIONS----------------------------###
 
-# We use dispatch to handle different arguments
-
-###----------------------------ADDITION----------------------------###
+# Base operations for each arithmetic function
+###----------------------------ADDITION BASE----------------------------###
 @dispatch(Interval, Interval)
-def generic_add(x, y):
-    """Generic addition for two intervals."""
+def _add_base(x, y):
+    """Base addition for two intervals."""
     return add_intervals(x, y)
 
 @dispatch(int, int)
 @dispatch(float, float)
 @dispatch(int, float)
 @dispatch(float, int)
-def generic_add(x, y):
-    """Generic addition for two numbers."""
+def _add_base(x, y):
+    """Base addition for two numbers."""
     return x + y
 
 @dispatch(Interval, (int, float))
-def generic_add(x, y):
-    """Generic addition for an interval and a number."""
+def _add_base(x, y):
+    """Base addition for an interval and a number."""
     return add_intervals(x, to_interval(y))
 
 @dispatch((int, float), Interval)
-def generic_add(x, y):
-    """Generic addition for a number and an interval."""
+def _add_base(x, y):
+    """Base addition for a number and an interval."""
     return add_intervals(to_interval(x), y)
 
-@dispatch(ValueWithSupport, ValueWithSupport)
-def generic_add(x, y):
-    """Add two ValueWithSupport objects."""
-    result_value = generic_add(x.value, y.value)
-    # Combine the supports
-    from merge import merge_supports
-    result_support = merge_supports(x, y)
-    return ValueWithSupport(result_value, result_support)
+@dispatch(object, object)
+def _add_base(x, y):
+    """Default case for addition."""
+    # Try using Python's built-in addition
+    try:
+        return x + y
+    except (TypeError, ValueError):
+        return NOTHING
 
-@dispatch(ValueWithSupport, object)
-def generic_add(x, y):
-    """Add a ValueWithSupport to a regular value."""
-    result_value = generic_add(x.value, y)
-    return ValueWithSupport(result_value, x.support)
-
-@dispatch(object, ValueWithSupport)
-def generic_add(x, y):
-    """Add a regular value to a ValueWithSupport."""
-    result_value = generic_add(x, y.value)
-    return ValueWithSupport(result_value, y.support)
-
-###----------------------------SUBTRACTION----------------------------###
+###----------------------------SUBTRACTION BASE----------------------------###
 @dispatch(Interval, Interval)
-def generic_subtract(x, y):
-    """Generic subtraction for two intervals."""
+def _subtract_base(x, y):
+    """Base subtraction for two intervals."""
     return sub_intervals(x, y)
 
 @dispatch(int, int)
 @dispatch(float, float)
 @dispatch(int, float)
 @dispatch(float, int)
-def generic_subtract(x, y):
-    """Generic subtraction for two numbers."""
+def _subtract_base(x, y):
+    """Base subtraction for two numbers."""
     return x - y
 
 @dispatch(Interval, (int, float))
-def generic_subtract(x, y):
-    """Generic subtraction for an interval and a number."""
+def _subtract_base(x, y):
+    """Base subtraction for an interval and a number."""
     return sub_intervals(x, to_interval(y))
 
 @dispatch((int, float), Interval)
-def generic_subtract(x, y):
-    """Generic subtraction for a number and an interval."""
+def _subtract_base(x, y):
+    """Base subtraction for a number and an interval."""
     return sub_intervals(to_interval(x), y)
 
-@dispatch(ValueWithSupport, ValueWithSupport)
-def generic_subtract(x, y):
-    result_value = generic_subtract(x.value, y.value)
-    from merge import merge_supports
-    result_support = merge_supports(x, y)
-    return ValueWithSupport(result_value, result_support)
+@dispatch(object, object)
+def _subtract_base(x, y):
+    """Default case for subtraction."""
+    # Try using Python's built-in subtraction
+    try:
+        return x - y
+    except (TypeError, ValueError):
+        return NOTHING
 
-@dispatch(ValueWithSupport, object)
-def generic_subtract(x, y):
-    result_value = generic_subtract(x.value, y)
-    return ValueWithSupport(result_value, x.support)
-
-@dispatch(object, ValueWithSupport)
-def generic_subtract(x, y):
-    result_value = generic_subtract(x, y.value)
-    return ValueWithSupport(result_value, y.support)
-
-###----------------------------MULTIPLICATION----------------------------###
+###----------------------------MULTIPLICATION BASE----------------------------###
 @dispatch(Interval, Interval)
-def generic_multiply(x, y):
-    """Generic multiplication for two intervals."""
+def _multiply_base(x, y):
+    """Base multiplication for two intervals."""
     return mul_intervals(x, y)
 
 @dispatch(int, int)
 @dispatch(float, float)
 @dispatch(int, float)
 @dispatch(float, int)
-def generic_multiply(x, y):
-    """Generic multiplication for two numbers."""
+def _multiply_base(x, y):
+    """Base multiplication for two numbers."""
     return x * y
 
 @dispatch(Interval, (int, float))
-def generic_multiply(x, y):
-    """Generic multiplication for an interval and a number."""
+def _multiply_base(x, y):
+    """Base multiplication for an interval and a number."""
     return mul_intervals(x, to_interval(y))
 
 @dispatch((int, float), Interval)
-def generic_multiply(x, y):
-    """Generic multiplication for a number and an interval."""
+def _multiply_base(x, y):
+    """Base multiplication for a number and an interval."""
     return mul_intervals(to_interval(x), y)
 
-@dispatch(ValueWithSupport, ValueWithSupport)
-def generic_multiply(x, y):
-    result_value = generic_multiply(x.value, y.value)
-    from merge import merge_supports
-    result_support = merge_supports(x, y)
-    return ValueWithSupport(result_value, result_support)
+@dispatch(object, object)
+def _multiply_base(x, y):
+    """Default case for multiplication."""
+    # Try using Python's built-in multiplication
+    try:
+        return x * y
+    except (TypeError, ValueError):
+        return NOTHING
 
-@dispatch(ValueWithSupport, object)
-def generic_multiply(x, y):
-    result_value = generic_multiply(x.value, y)
-    return ValueWithSupport(result_value, x.support)
-
-@dispatch(object, ValueWithSupport)
-def generic_multiply(x, y):
-    result_value = generic_multiply(x, y.value)
-    return ValueWithSupport(result_value, y.support)
-
-###----------------------------DIVISION----------------------------###
+###----------------------------DIVISION BASE----------------------------###
 @dispatch(Interval, Interval)
-def generic_divide(x, y):
-    """Generic division for two intervals."""
+def _divide_base(x, y):
+    """Base division for two intervals."""
     return div_intervals(x, y)
 
 @dispatch((int, float), int)
 @dispatch((int, float), float)
-def generic_divide(x, y):
-    """Generic division for two numbers."""
+def _divide_base(x, y):
+    """Base division for two numbers."""
     if y == 0:
         return NOTHING
     return x / y
 
 @dispatch(Interval, (int, float))
-def generic_divide(x, y):
-    """Generic division for an interval and a number."""
+def _divide_base(x, y):
+    """Base division for an interval and a number."""
     if y == 0:
         return NOTHING
     return div_intervals(x, to_interval(y))
 
 @dispatch((int, float), Interval)
-def generic_divide(x, y):
-    """Generic division for a number and an interval."""
+def _divide_base(x, y):
+    """Base division for a number and an interval."""
     return div_intervals(to_interval(x), y)
 
-@dispatch(ValueWithSupport, ValueWithSupport)
-def generic_divide(x, y):
-    result_value = generic_divide(x.value, y.value)
-    from merge import merge_supports
-    result_support = merge_supports(x, y)
-    return ValueWithSupport(result_value, result_support)
+@dispatch(object, object)
+def _divide_base(x, y):
+    """Default case for division."""
+    # Try using Python's built-in division
+    try:
+        return x / y
+    except (TypeError, ValueError, ZeroDivisionError):
+        return NOTHING
 
-@dispatch(ValueWithSupport, object)
-def generic_divide(x, y):
-    result_value = generic_divide(x.value, y)
-    return ValueWithSupport(result_value, x.support)
+###----------------------------LAYERED PROCEDURES----------------------------###
 
-@dispatch(object, ValueWithSupport)
-def generic_divide(x, y):
-    result_value = generic_divide(x, y.value)
-    return ValueWithSupport(result_value, y.support)
+# Create layered procedures for each operation
+generic_add = make_layered_procedure('add', 2, _add_base)
+generic_subtract = make_layered_procedure('subtract', 2, _subtract_base)
+generic_multiply = make_layered_procedure('multiply', 2, _multiply_base)
+generic_divide = make_layered_procedure('divide', 2, _divide_base)
 
 ###----------------------------PARTIAL INFORMATION HANDLING----------------------------###
 
-def generic_bind(value, continuation):
+def generic_unpack(value, continuation):
     """
-    Binds a value to a continuation function, handling partial information and TMS.
-    """
-    from nothing import NOTHING
-    from tms import generic_flatten, is_v_and_s, ValueWithSupport
+    Extracts the base content from a value and applies a function to it.
     
-    # Handle NOTHING case first
+    Args:
+        value: The value to unpack (could be layered, TMS, etc.)
+        continuation: Function to apply to the unpacked value
+        
+    Returns:
+        The result of applying the continuation function to the unpacked value
+    """
+    # Handle NOTHING specially
     if value is NOTHING:
         return NOTHING
     
-    # Handle ValueWithSupport
-    if is_v_and_s(value):
-        # Flatten any nested ValueWithSupport objects
-        flattened = generic_flatten(value)
+    # Handle TMS values (collections of supported values)
+    if isinstance(value, TMS):
+        # For TMS, we query it to get the strongest consequence
+        from tms import tms_query
+        return tms_query(value)
+    
+    # Handle layered data
+    if isinstance(value, LayeredDatum):
+        # Extract the base value
+        base_value = base_layer_value(value)
         
-        # Extract the actual value, ensuring it's not another ValueWithSupport
-        inner_value = flattened.value
-        
-        # Make sure we're not passing a ValueWithSupport to the continuation
-        # This is the key fix to prevent recursion
-        while is_v_and_s(inner_value):
-            inner_value = inner_value.value
-        
-        # Apply the continuation to the fully unwrapped inner value
-        result = continuation(inner_value)
+        # Apply the continuation to the base value
+        result = continuation(base_value)
         
         # If the result is NOTHING, return NOTHING
         if result is NOTHING:
             return NOTHING
         
-        # If the result is already a ValueWithSupport, merge the supports
-        if is_v_and_s(result):
-            from merge import merge_supports
-            result_support = merge_supports(flattened, result)
-            return ValueWithSupport(result.value, result_support)
+        # Apply support information if present
+        if value.has_layer('support'):
+            support = value.get_layer_value('support')
+            return LayeredDatum(result, support=support)
         
-        # Otherwise, return a new ValueWithSupport with the original support
-        return ValueWithSupport(result, flattened.support)
+        return result
     
     # For regular values, just apply the continuation
     return continuation(value)
+
+def generic_flatten(value):
+    """
+    Flatten any nested partial information structures.
+    
+    Args:
+        value: Value to flatten (might contain nested layers)
+        
+    Returns:
+        A flattened value with no nested layers
+    """
+    # Handle NOTHING specially
+    if value is NOTHING:
+        return NOTHING
+    
+    # Handle TMS values
+    if isinstance(value, TMS):
+        # TMS flattening would go here
+        return value
+    
+    # Handle layered data
+    if isinstance(value, LayeredDatum):
+        # Get the base value
+        base = base_layer_value(value)
+        
+        # If the base is also layered, flatten recursively
+        if isinstance(base, LayeredDatum):
+            # Use recursive flattening
+            from tms import generic_flatten as tms_flatten
+            return tms_flatten(value)
+        
+        return value
+    
+    # For regular values, return as is
+    return value
+
+def generic_bind(value, continuation):
+    """
+    Handles unpacking a value, applying a function, and flattening the result.
+    
+    This is the core function for handling partial information in the system.
+    
+    Args:
+        value: Value to process (could be any type with partial information)
+        continuation: Function to apply to the unpacked value
+        
+    Returns:
+        The flattened result of applying the continuation to the unpacked value
+    """
+    # Apply the unpack-apply-flatten sequence
+    result = generic_unpack(value, continuation)
+    return generic_flatten(result)
 
 def nary_unpacking(function):
     """
@@ -260,6 +284,16 @@ def nary_unpacking(function):
 
 @dispatch(object, object)
 def generic_merge(content, increment):
-    """Generic merge implementation delegating to cell.merge."""
-    from cell import merge
+    """Generic merge implementation delegating to merge module."""
     return merge(content, increment)
+
+###----------------------------IMPLIED OPERATIONS----------------------------###
+
+def implies(v1, v2):
+    """
+    Check if v1 implies v2 (v1 is more specific than or equal to v2).
+    
+    This is true if v1 merged with v2 equals v2.
+    """
+    merged = merge(v1, v2)
+    return merged == v2

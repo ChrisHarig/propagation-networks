@@ -3,7 +3,6 @@
 from cell import make_cell
 from interval import Interval
 from example_networks import fahrenheit_celsius_converter, sum_constraint, product_constraint
-from graph_visualizer import GraphVisualizer
 
 def test_fahrenheit_celsius_converter():
     """Test the Fahrenheit-Celsius converter with various inputs."""
@@ -100,68 +99,8 @@ def test_contradiction_handling():
     except ValueError as e:
         print(f"✓ Correctly caught contradiction: {e}")
 
-def visualize_network():
-    """Create and visualize a simple network."""
-    print("\n=== Visualizing Network ===")
-    
-    # Enable visualization
-    visualizer = GraphVisualizer()
-    import propagator
-    import cell
-    propagator.set_visualizer(visualizer)
-    cell.set_visualizer(visualizer)
-    
-    # Create a simple temperature converter
-    f = make_cell("Fahrenheit")
-    c = make_cell("Celsius")
-    fahrenheit_celsius_converter(f, c)
-    
-    # Set a value
-    f.add_content(212)
-    
-    # Display results
-    print(f"F: {f.content()} (Expected: 212)")
-    print(f"C: {c.content()} (Expected: 100)")
-    
-    # Draw the network
-    visualizer.draw("Temperature Converter")
-    
-    # Disable visualization
-    propagator.set_visualizer(None)
-    cell.set_visualizer(None)
-
-def visualize_fahrenheit_celsius():
-    """Create and visualize a Fahrenheit-Celsius converter network."""
-    print("\n=== Visualizing Fahrenheit-Celsius Converter ===")
-    
-    # Enable visualization
-    visualizer = GraphVisualizer()
-    import propagator
-    import cell
-    propagator.set_visualizer(visualizer)
-    cell.set_visualizer(visualizer)
-    
-    # Create a temperature converter
-    f = make_cell("Fahrenheit")
-    c = make_cell("Celsius")
-    fahrenheit_celsius_converter(f, c)
-    
-    # Set a value
-    f.add_content(212)
-    
-    # Display results
-    print(f"F: {f.content()} (Expected: 212)")
-    print(f"C: {c.content()} (Expected: 100)")
-    
-    # Draw the network
-    visualizer.draw("Fahrenheit-Celsius Converter")
-    
-    # Disable visualization
-    propagator.set_visualizer(None)
-    cell.set_visualizer(None)
 
 if __name__ == "__main__":
     test_fahrenheit_celsius_converter()
     test_constraint_propagators()
     test_contradiction_handling()
-    visualize_network() 

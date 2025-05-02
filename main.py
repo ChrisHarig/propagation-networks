@@ -1,12 +1,10 @@
 from tests import (
     test_fahrenheit_celsius_converter,
-    test_constraint_propagators,
-    visualize_fahrenheit_celsius
+    test_constraint_propagators
 )
 from tms_tests import (
     test_tms_basic,
-    test_tms_contradiction,
-    test_tms_visualize
+    test_tms_contradiction
 )
 from network_repl import PropNetworkREPL
 import sys
@@ -20,19 +18,14 @@ def run_all_tests():
     # Run TMS tests
     test_tms_basic()
     test_tms_contradiction()
-    test_tms_visualize()
     
     print("\nAll tests completed.")
 
 if __name__ == "__main__":
     # Check if the user wants to run in REPL mode
     if len(sys.argv) > 1 and sys.argv[1].lower() == "repl":
-        # Check if visualization should be disabled
-        use_visualization = "--no_vis" not in sys.argv
-        
         repl = PropNetworkREPL()
-        repl.run(use_visualization=use_visualization)
+        repl.run()
     else:
-        # Default to whatever functions placed here
+        # Default to running tests
         run_all_tests()
-        visualize_fahrenheit_celsius()

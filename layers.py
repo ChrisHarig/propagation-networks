@@ -89,7 +89,7 @@ class SupportLayer:
             A procedure that implements support handling for the operation
         """
         # Get all support handlers from the dedicated module
-        from support_handlers import get_support_handlers
+        from support_layer_handlers import get_support_handlers
         handlers = get_support_handlers()
         
         # Return the handler for this operation if it exists

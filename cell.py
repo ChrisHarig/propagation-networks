@@ -2,17 +2,8 @@ from nothing import NOTHING, THE_CONTRADICTION, contradictory
 from propagator import alert_propagators
 from multipledispatch import dispatch
 from merge import merge
-from tms import is_v_and_s, ValueWithSupport, TMS
-
-# Add global visualizer variable at the top of the file
-_visualizer = None
-
-def set_visualizer(visualizer):
-    """Set the global visualizer for cells."""
-    global _visualizer
-    _visualizer = visualizer
-
-###----------------------------CELL OBJECT----------------------------###
+from tms import TMS
+from layers import LayeredDatum, base_layer_value, support_layer_value
 
 class Cell:
     """
@@ -46,7 +37,7 @@ class Cell:
         """
         from nothing import NOTHING, contradictory
         from merge import merge
-        from tms import TMS, is_v_and_s
+        from tms import TMS
         
         # Nothing is a no-op
         if increment is NOTHING:
@@ -64,29 +55,10 @@ class Cell:
             if merged != self._content:
                 old_content = self._content
                 self._content = merged
-                if _visualizer:
-                    _visualizer.on_cell_updated(self, old_content, merged)
                 self._alert_propagators()
             return
         
-        # Handle ValueWithSupport values - EDIT THIS TO SUPPORT LAYERED DATA
-        if is_v_and_s(increment) or is_v_and_s(self._content):
-            merged = merge(self._content, increment)
-            
-            # Check for contradictions
-            if contradictory(merged):
-                raise ValueError(f"Contradiction in cell {self.name}: cannot merge {self._content} with {increment}")
-            
-            # Update content and alert propagators if changed
-            if merged != self._content:
-                old_content = self._content
-                self._content = merged
-                if _visualizer:
-                    _visualizer.on_cell_updated(self, old_content, merged)
-                self._alert_propagators()
-            return
-        
-        # Regular case (non-TMS, non-ValueWithSupport)
+        # The merge function handles all types through dispatch
         merged = merge(self._content, increment)
         
         # Check for contradictions
@@ -97,8 +69,6 @@ class Cell:
         if merged != self._content:
             old_content = self._content
             self._content = merged
-            if _visualizer:
-                _visualizer.on_cell_updated(self, old_content, merged)
             self._alert_propagators()
     
     def new_neighbor(self, propagator):
@@ -117,7 +87,4 @@ class Cell:
 
 def make_cell(name=None):
     """Factory function to create a new cell."""
-    cell = Cell(name)
-    if _visualizer:
-        _visualizer.on_cell_created(cell)
-    return cell
+    return Cell(name)

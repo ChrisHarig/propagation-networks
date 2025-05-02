@@ -1,19 +1,10 @@
 from nothing import NOTHING
 
-# Add global visualizer variable at the top of the file
-_visualizer = None
-
 # Global registry of propagators that have ever been alerted
 # Using a dictionary as Python's equivalent of a hash table
 _propagators_ever_alerted = {}
 _propagators_ever_alerted_list = []
 
-def set_visualizer(visualizer):
-    """Set the global visualizer for propagators."""
-    global _visualizer
-    _visualizer = visualizer
-
-###----------------------------PROPAGATOR OBJECT----------------------------###
 class Propagator:
     """
     A propagator enforces a relationship between cells.
@@ -39,8 +30,6 @@ class Propagator:
         # Register this propagator with all its cells
         for cell in neighbors:
             cell.new_neighbor(self)
-            if _visualizer:
-                _visualizer.on_connection_made(self, cell)
             
         # Alert the propagator at least once during initialization
         alert_propagator(self)
@@ -61,14 +50,9 @@ class Propagator:
         cell_names = ', '.join(c.name or '?' for c in self.cells)
         return f"Propagator({self.name or 'Unnamed'}: [{cell_names}])"
 
-
 def make_propagator(to_do, neighbors, name=None):
     """Factory function to create a new propagator."""
-    prop = Propagator(to_do, neighbors, name)
-    
-    if _visualizer:
-        _visualizer.on_propagator_created(prop)
-    return prop
+    return Propagator(to_do, neighbors, name)
 
 def register_alerted_propagator(propagator):
     """
@@ -114,7 +98,7 @@ def function_to_propagator_constructor(f):
         output = cells[-1]
         inputs = cells[:-1]
         
-        def operation():
+        def operation(): 
             # Get the content of all input cells
             input_values = [cell.content() for cell in inputs]
             
