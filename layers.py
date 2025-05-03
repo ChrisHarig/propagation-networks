@@ -32,8 +32,15 @@ class BaseLayer:
         If obj is a layered datum, retrieves its base value.
         Otherwise, returns the object itself.
         """
+        # Debug: Print type info
+        obj_type = type(obj).__name__
+        
         if hasattr(obj, 'get_layer_value'):
-            return obj.get_layer_value('base')
+            value = obj.get_layer_value('base')
+            print(f"BaseLayer.get_value: {obj_type} with layer -> {type(value).__name__}")
+            return value
+            
+        print(f"BaseLayer.get_value: {obj_type} (no layer) -> same")
         return obj
     
     @staticmethod
@@ -112,7 +119,14 @@ def layer_value(layer_name, obj): #do we want to return none if the layer is not
     return None
 
 # Convenience functions
-base_layer_value = lambda obj: layer_value('base', obj)
+def debug_base_layer_value(obj):
+    """Debug wrapper for base_layer_value."""
+    value = layer_value('base', obj)
+    # Debug: Print type info
+    print(f"base_layer_value: {type(obj).__name__} -> {type(value).__name__}")
+    return value
+
+base_layer_value = debug_base_layer_value
 support_layer_value = lambda obj: layer_value('support', obj)
 
 ###----------------------------LAYERED DATUM----------------------------###
@@ -164,10 +178,11 @@ def make_layered_datum(base_value, layer_dict=None):
         layer_dict: Dictionary of layer names to layer values
         
     Returns:
-        A LayeredDatum if there are annotation layers, otherwise just the base_value
+        A LayeredDatum instance containing the base_value and any annotation layers
     """
+    # Always create a LayeredDatum, even with no annotation layers
     if not layer_dict:
-        return base_value
+        return LayeredDatum(base_value)
         
     # Create a layered datum with the base value and layer values
     kwargs = {k: v for k, v in layer_dict.items() if k != 'base'}
@@ -225,6 +240,77 @@ class LayeredMetadata:
             return layer_obj.get_procedure(self.name, self.arity)    
         return None
 
+###----------------------------LAYERED DATA HELPERS----------------------------###
+
+def is_v_and_s(obj):
+    """Check if an object is a value with support (layered datum with support layer)."""
+    return isinstance(obj, LayeredDatum) and obj.has_layer('support')
+
+def flatten_layered_datum(layered_datum, _depth=0, _max_depth=10): 
+    """
+    Flatten any nested layered data by merging annotation layers.
+    
+    This function handles cases where a LayeredDatum has another LayeredDatum
+    as its base value. It merges the annotation layers from both to create a
+    single LayeredDatum with the innermost base value and combined layers.
+
+    Will need to be extended for handling more than just support.
+    
+    Args:
+        layered_datum: A layered datum that may have nested structure
+        _depth: (Internal) Current recursion depth
+        _max_depth: (Internal) Maximum recursion depth allowed
+        
+    Returns:
+        A flattened LayeredDatum with combined layers if nested, or the
+        original layered_datum if it doesn't need flattening
+    """
+    # Return non-LayeredDatum inputs unchanged
+    if not isinstance(layered_datum, LayeredDatum):
+        return layered_datum
+    
+    # Prevent infinite recursion
+    if _depth >= _max_depth:
+        print(f"Warning: Maximum recursion depth ({_max_depth}) reached in flatten_layered_datum")
+        return layered_datum
+    
+    base_value = base_layer_value(layered_datum)
+    
+    # If the base value is also a layered datum, flatten it
+    if isinstance(base_value, LayeredDatum):
+        # First, recursively flatten the inner layered datum
+        flattened_inner = flatten_layered_datum(base_value, _depth + 1, _max_depth)
+        inner_base = base_layer_value(flattened_inner)
+        
+        # Create a new layered datum with the innermost base value
+        result = LayeredDatum(inner_base)
+        
+        # Add all annotation layers from the inner layered datum
+        for layer_name in flattened_inner.get_annotation_layers():
+            result.layers[layer_name] = flattened_inner.get_layer_value(layer_name)
+        
+        # Add all annotation layers from the outer layered datum
+        for layer_name in layered_datum.get_annotation_layers():
+            # For support layers, we want to combine them
+            if layer_name == 'support':
+                if 'support' in result.layers:
+                    # Combine the supports using union
+                    inner_support = result.layers['support']
+                    outer_support = layered_datum.get_layer_value('support')
+                    result.layers['support'] = inner_support.union(outer_support)
+                else:
+                    # Just use the outer support
+                    result.layers['support'] = layered_datum.get_layer_value('support')
+            else:
+                # For other layers, outer layers override inner ones
+                result.layers[layer_name] = layered_datum.get_layer_value(layer_name)
+        
+        return result
+    
+    # If the base value is not a layered datum, return the original
+    return layered_datum
+
+###----------------------------LAYERED PROCEDURE DISPATCHER----------------------------###
 def layered_procedure_dispatcher(metadata):
     """
     Create a function that dispatches to layer handlers appropriately.
@@ -233,37 +319,40 @@ def layered_procedure_dispatcher(metadata):
         metadata: The LayeredMetadata for this procedure
         
     Returns:
-        A function that handles layered data correctly
+        A function that handles layered data correctly and returns a LayeredDatum
     """
     base_procedure = metadata.get_base_procedure()
     
     def dispatcher(*args):
-        # Extract base values from all arguments
-        base_values = [base_layer_value(arg) for arg in args]
+        # First, flatten any nested layered data in the arguments
+        flattened_args = [flatten_layered_datum(arg) for arg in args]
+        
+        # Extract base values from all flattened arguments
+        base_values = [base_layer_value(arg) for arg in flattened_args]
+        
+        # Debug: Print the types of base_values
+        print(f"Dispatcher for {metadata.get_name()} called with types: {[type(v).__name__ for v in base_values]}")
         
         # Apply the base procedure to get the base result
         base_result = base_procedure(*base_values)
         
         # Find annotation layers present in any arguments
         annotation_layers = set()
-        for arg in args:
+        for arg in flattened_args:
             if hasattr(arg, 'get_annotation_layers'):
                 annotation_layers.update(arg.get_annotation_layers())
         
-        # If no annotation layers, just return the base result
-        if not annotation_layers:
-            return base_result
-            
-        # Otherwise, process each applicable layer
+        # Process annotation layers if present
         layer_results = {}
-        for layer in annotation_layers:
-            handler = metadata.get_handler(layer)
-            if handler:
-                layer_result = handler(base_result, *args)
-                if layer_result is not None:  # Only include if handler returned something
-                    layer_results[layer] = layer_result
+        if annotation_layers:
+            for layer in annotation_layers:
+                handler = metadata.get_handler(layer)
+                if handler:
+                    layer_result = handler(base_result, *flattened_args)
+                    if layer_result is not None:  # Only include if handler returned something
+                        layer_results[layer] = layer_result
         
-        # Return a layered datum with the base result and layer results
+        # Create a layered datum with the base result and layer results
         return make_layered_datum(base_result, layer_results)
     
     return dispatcher
@@ -290,3 +379,4 @@ def make_layered_procedure(name, arity, base_procedure):
     dispatcher.metadata = metadata
     
     return dispatcher
+

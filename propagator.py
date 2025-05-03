@@ -1,7 +1,6 @@
 from nothing import NOTHING
 
 # Global registry of propagators that have ever been alerted
-# Using a dictionary as Python's equivalent of a hash table
 _propagators_ever_alerted = {}
 _propagators_ever_alerted_list = []
 
@@ -110,9 +109,12 @@ def function_to_propagator_constructor(f):
             if result is not NOTHING:
                 output.add_content(result)
         
+        # Import within the function to avoid circular imports
+        # This is safe because make_propagator is only used at this point
+        from propagator import make_propagator
         return make_propagator(operation, cells, name=f.__name__ if hasattr(f, '__name__') else None)
     
-    return constructor 
+    return constructor
 
 def alert_all_propagators():
     """

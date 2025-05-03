@@ -1,6 +1,5 @@
 from generic_operations import (
-    generic_add, generic_subtract, generic_multiply, generic_divide,
-    nary_unpacking
+    generic_add, generic_subtract, generic_multiply, generic_divide
 )
 from cell import make_cell
 from propagator import make_propagator, function_to_propagator_constructor
@@ -13,7 +12,7 @@ def adder():
     
     Usage: adder()(a, b, c) creates a propagator that ensures c = a + b
     """
-    return function_to_propagator_constructor(nary_unpacking(generic_add))
+    return function_to_propagator_constructor(generic_add)
 
 def subtractor():
     """
@@ -21,7 +20,7 @@ def subtractor():
     
     Usage: subtractor()(a, b, c) creates a propagator that ensures c = a - b
     """
-    return function_to_propagator_constructor(nary_unpacking(generic_subtract))
+    return function_to_propagator_constructor(generic_subtract)
 
 def multiplier():
     """
@@ -29,7 +28,7 @@ def multiplier():
     
     Usage: multiplier()(a, b, c) creates a propagator that ensures c = a * b
     """
-    return function_to_propagator_constructor(nary_unpacking(generic_multiply))
+    return function_to_propagator_constructor(generic_multiply)
 
 def divider():
     """
@@ -37,7 +36,7 @@ def divider():
     
     Usage: divider()(a, b, c) creates a propagator that ensures c = a / b
     """
-    return function_to_propagator_constructor(nary_unpacking(generic_divide))
+    return function_to_propagator_constructor(generic_divide)
 
 def constant(value):
     """
@@ -66,4 +65,4 @@ def switch():
         return NOTHING
     
     switch_function.__name__ = "switch"
-    return function_to_propagator_constructor(nary_unpacking(switch_function)) 
+    return function_to_propagator_constructor(switch_function) 

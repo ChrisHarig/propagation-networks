@@ -9,7 +9,7 @@ class PropNetworkREPL:
         self.cells = {}
         self.propagators = {}
         self.premises = {}
-        
+    
     def run(self, use_visualization=False):
         """Start the propagation network REPL."""
         print("Propagation Network Interactive Environment")
@@ -281,7 +281,7 @@ class PropNetworkREPL:
         for name, premise in self.premises.items():
             if verbose:
                 print(f"  {name}")
-
+        
     def _show_worldview(self):
         """Show all premises in the current worldview."""
         print("\nCurrent worldview (active premises):")

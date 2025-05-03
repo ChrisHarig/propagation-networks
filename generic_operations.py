@@ -1,14 +1,17 @@
-from nothing import NOTHING
+from nothing import NOTHING, THE_CONTRADICTION, contradictory, Nothing
 from interval import Interval, add_intervals, sub_intervals, mul_intervals, div_intervals, to_interval, EMPTY_INTERVAL
 from multipledispatch import dispatch
-from tms import TMS
 from layers import make_layered_procedure, base_layer_value, support_layer_value, LayeredDatum
-from merge import merge
 
-###----------------------------GENERIC OPERATIONS----------------------------###
-
-# Base operations for each arithmetic function
 ###----------------------------ADDITION BASE----------------------------###
+
+@dispatch(Nothing, object)
+@dispatch(object, Nothing)
+@dispatch(Nothing, Nothing)
+def _add_base(x, y):
+    """Base addition for a NOTHING and an object."""
+    return NOTHING
+
 @dispatch(Interval, Interval)
 def _add_base(x, y):
     """Base addition for two intervals."""
@@ -42,6 +45,14 @@ def _add_base(x, y):
         return NOTHING
 
 ###----------------------------SUBTRACTION BASE----------------------------###
+
+@dispatch(Nothing, object)
+@dispatch(object, Nothing)
+@dispatch(Nothing, Nothing)
+def _subtract_base(x, y):
+    """Base subtraction when one operand is NOTHING."""
+    return NOTHING
+
 @dispatch(Interval, Interval)
 def _subtract_base(x, y):
     """Base subtraction for two intervals."""
@@ -75,6 +86,14 @@ def _subtract_base(x, y):
         return NOTHING
 
 ###----------------------------MULTIPLICATION BASE----------------------------###
+
+@dispatch(Nothing, object)
+@dispatch(object, Nothing)
+@dispatch(Nothing, Nothing)
+def _multiply_base(x, y):
+    """Base multiplication when one operand is NOTHING."""
+    return NOTHING
+
 @dispatch(Interval, Interval)
 def _multiply_base(x, y):
     """Base multiplication for two intervals."""
@@ -108,6 +127,14 @@ def _multiply_base(x, y):
         return NOTHING
 
 ###----------------------------DIVISION BASE----------------------------###
+
+@dispatch(Nothing, object)
+@dispatch(object, Nothing)
+@dispatch(Nothing, Nothing)
+def _divide_base(x, y):
+    """Base division when one operand is NOTHING."""
+    return NOTHING
+
 @dispatch(Interval, Interval)
 def _divide_base(x, y):
     """Base division for two intervals."""
@@ -142,6 +169,70 @@ def _divide_base(x, y):
     except (TypeError, ValueError, ZeroDivisionError):
         return NOTHING
 
+###----------------------------MERGE BASE----------------------------###
+
+@dispatch(object, object)
+def _merge_base(content, increment):
+    """Default implementation for types without a specific handler."""
+    if content == increment:
+        return content
+    else:
+        return THE_CONTRADICTION
+
+@dispatch(Nothing, object)
+def _merge_base(content, increment):
+    """Handle merging NOTHING with any object."""
+    return increment
+
+@dispatch(object, Nothing)
+def _merge_base(content, increment):
+    """Handle merging any object with NOTHING."""
+    return content
+
+@dispatch(Nothing, Nothing)
+def _merge_base(content, increment):
+    """Handle merging NOTHING with NOTHING."""
+    return NOTHING
+
+@dispatch(Interval, Interval)
+def _merge_base(content, increment):
+    """Merge two intervals by finding their intersection."""
+    # Use the intersection of the two intervals
+    new_interval = Interval.intersect(content, increment)
+    if new_interval.is_empty():
+        return THE_CONTRADICTION
+    
+    # Check if the result is exactly one of the inputs
+    tolerance = 1e-9
+    if (abs(new_interval.low - content.low) < tolerance and 
+        abs(new_interval.high - content.high) < tolerance):
+        return content
+    if (abs(new_interval.low - increment.low) < tolerance and 
+        abs(new_interval.high - increment.high) < tolerance):
+        return increment
+    
+    return new_interval
+
+@dispatch(Interval, (int, float))
+def _merge_base(content, increment):
+    """Merge an interval with a number."""
+    if content.low <= increment <= content.high:
+        # The number is consistent with the interval
+        return increment
+    else:
+        # The number is outside the interval - contradiction
+        return THE_CONTRADICTION
+
+@dispatch((int, float), Interval)
+def _merge_base(content, increment):
+    """Merge a number with an interval."""
+    if increment.low <= content <= increment.high:
+        # The number is consistent with the interval
+        return content
+    else:
+        # The number is outside the interval - contradiction
+        return THE_CONTRADICTION
+
 ###----------------------------LAYERED PROCEDURES----------------------------###
 
 # Create layered procedures for each operation
@@ -149,145 +240,9 @@ generic_add = make_layered_procedure('add', 2, _add_base)
 generic_subtract = make_layered_procedure('subtract', 2, _subtract_base)
 generic_multiply = make_layered_procedure('multiply', 2, _multiply_base)
 generic_divide = make_layered_procedure('divide', 2, _divide_base)
+generic_merge = make_layered_procedure('merge', 2, _merge_base)
 
-###----------------------------PARTIAL INFORMATION HANDLING----------------------------###
-
-def generic_unpack(value, continuation):
-    """
-    Extracts the base content from a value and applies a function to it.
-    
-    Args:
-        value: The value to unpack (could be layered, TMS, etc.)
-        continuation: Function to apply to the unpacked value
-        
-    Returns:
-        The result of applying the continuation function to the unpacked value
-    """
-    # Handle NOTHING specially
-    if value is NOTHING:
-        return NOTHING
-    
-    # Handle TMS values (collections of supported values)
-    if isinstance(value, TMS):
-        # For TMS, we query it to get the strongest consequence
-        from tms import tms_query
-        return tms_query(value)
-    
-    # Handle layered data
-    if isinstance(value, LayeredDatum):
-        # Extract the base value
-        base_value = base_layer_value(value)
-        
-        # Apply the continuation to the base value
-        result = continuation(base_value)
-        
-        # If the result is NOTHING, return NOTHING
-        if result is NOTHING:
-            return NOTHING
-        
-        # Apply support information if present
-        if value.has_layer('support'):
-            support = value.get_layer_value('support')
-            return LayeredDatum(result, support=support)
-        
-        return result
-    
-    # For regular values, just apply the continuation
-    return continuation(value)
-
-def generic_flatten(value):
-    """
-    Flatten any nested partial information structures.
-    
-    Args:
-        value: Value to flatten (might contain nested layers)
-        
-    Returns:
-        A flattened value with no nested layers
-    """
-    # Handle NOTHING specially
-    if value is NOTHING:
-        return NOTHING
-    
-    # Handle TMS values
-    if isinstance(value, TMS):
-        # TMS flattening would go here
-        return value
-    
-    # Handle layered data
-    if isinstance(value, LayeredDatum):
-        # Get the base value
-        base = base_layer_value(value)
-        
-        # If the base is also layered, flatten recursively
-        if isinstance(base, LayeredDatum):
-            # Use recursive flattening
-            from tms import generic_flatten as tms_flatten
-            return tms_flatten(value)
-        
-        return value
-    
-    # For regular values, return as is
-    return value
-
-def generic_bind(value, continuation):
-    """
-    Handles unpacking a value, applying a function, and flattening the result.
-    
-    This is the core function for handling partial information in the system.
-    
-    Args:
-        value: Value to process (could be any type with partial information)
-        continuation: Function to apply to the unpacked value
-        
-    Returns:
-        The flattened result of applying the continuation to the unpacked value
-    """
-    # Apply the unpack-apply-flatten sequence
-    result = generic_unpack(value, continuation)
-    return generic_flatten(result)
-
-def nary_unpacking(function):
-    """
-    Creates a function that properly handles partial information in its arguments.
-    
-    Args:
-        function: The base function to wrap
-        
-    Returns:
-        A function that handles partial information in its arguments
-    """
-    def wrapped(*args):
-        # Process arguments recursively
-        def loop(remaining_args, current_function):
-            if not remaining_args:
-                return current_function()
-            
-            # Process the first argument using generic_bind
-            return generic_bind(
-                remaining_args[0],
-                lambda arg: loop(
-                    remaining_args[1:],
-                    lambda *rest_args: current_function(arg, *rest_args)
-                )
-            )
-        
-        return loop(args, function)
-    
-    # Preserve the function name for debugging
-    if hasattr(function, '__name__'):
-        wrapped.__name__ = function.__name__
-    
-    return wrapped
-
-###----------------------------MERGE----------------------------###
-
-@dispatch(object, object)
-def generic_merge(content, increment):
-    """Generic merge implementation delegating to merge module."""
-    return merge(content, increment)
-
-###----------------------------IMPLIED OPERATIONS----------------------------###
+###----------------------------PUBLIC FUNCTIONS----------------------------###
 
 def implies(v1, v2):
     """
@@ -295,5 +250,6 @@ def implies(v1, v2):
     
     This is true if v1 merged with v2 equals v2.
     """
-    merged = merge(v1, v2)
-    return merged == v2
+    return generic_merge(v1, v2) == v2
+
+

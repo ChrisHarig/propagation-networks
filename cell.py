@@ -1,7 +1,7 @@
 from nothing import NOTHING, THE_CONTRADICTION, contradictory
 from propagator import alert_propagators
 from multipledispatch import dispatch
-from merge import merge
+from generic_operations import generic_merge
 from tms import TMS
 from layers import LayeredDatum, base_layer_value, support_layer_value
 
@@ -35,31 +35,17 @@ class Cell:
         Args:
             increment: The new content to add to this cell.
         """
-        from nothing import NOTHING, contradictory
-        from merge import merge
-        from tms import TMS
+        from nothing import contradictory
+        from generic_operations import generic_merge
+        from layers import LayeredDatum
         
-        # Nothing is a no-op
-        if increment is NOTHING:
-            return
-        
-        # Handle TMS values specially
-        if isinstance(increment, TMS) or isinstance(self._content, TMS):
-            merged = merge(self._content, increment)
+        # Ensure the increment is a LayeredDatum if it isn't already
+        if not isinstance(increment, LayeredDatum):
+            from layers import make_layered_datum
+            increment = make_layered_datum(increment)
             
-            # Check for contradictions
-            if contradictory(merged):
-                raise ValueError(f"Contradiction in cell {self.name}: cannot merge {self._content} with {increment}")
-            
-            # Update content and alert propagators if changed
-            if merged != self._content:
-                old_content = self._content
-                self._content = merged
-                self._alert_propagators()
-            return
-        
-        # The merge function handles all types through dispatch
-        merged = merge(self._content, increment)
+        # Merge the new content with existing content
+        merged = generic_merge(self._content, increment)
         
         # Check for contradictions
         if contradictory(merged):
@@ -67,7 +53,6 @@ class Cell:
         
         # Update content and alert propagators if changed
         if merged != self._content:
-            old_content = self._content
             self._content = merged
             self._alert_propagators()
     

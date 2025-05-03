@@ -4,7 +4,7 @@ Truth Maintenance System (TMS) for the propagation network.
 This module implements support for tracking the premises that justify
 values in the propagation network.
 """
-from layers import LayeredDatum, base_layer_value, support_layer_value
+from layers import LayeredDatum, base_layer_value, support_layer_value, is_v_and_s
 
 ###-----------------------------------GLOBAL WORLDVIEW-----------------------------------###
 
@@ -125,14 +125,14 @@ class Support:
     def __repr__(self):
         return f"Support({repr(self.premises)})"
 
-def implies(v1, v2): #cant we just use a set comparison?
+def implies(v1, v2): 
     """
     Check if v1 implies v2 (v1 is more specific than or equal to v2).
     
     This is true if v1 merged with v2 equals v2.
     """
-    from merge import merge
-    return merge(v1, v2) == v2
+    from generic_operations import generic_merge
+    return generic_merge(v1, v2) == v2
 
 def more_informative_support(s1, s2):
     """
@@ -170,31 +170,6 @@ def supported_value(value, premises):
     """
     support = Support(premises)
     return supported(value, support)
-
-###-----------------------------------LAYERED DATA HELPERS-----------------------------------###
-
-def is_v_and_s(obj):
-    """Check if an object is a value with support (layered datum with support layer)."""
-    return isinstance(obj, LayeredDatum) and obj.has_layer('support')
-
-def generic_flatten(layered_datum):
-    """
-    Flatten any nested layered data by merging their supports.
-    """
-    if not is_v_and_s(layered_datum):
-        return layered_datum
-    
-    base_value = base_layer_value(layered_datum)
-    support = support_layer_value(layered_datum)
-    
-    # If the base value is also a layered datum with support, combine them
-    if is_v_and_s(base_value):
-        inner_base = base_layer_value(base_value)
-        inner_support = support_layer_value(base_value)
-        combined_support = merge_supports(support, inner_support)
-        return LayeredDatum(inner_base, support=combined_support)
-    
-    return layered_datum
 
 ###-----------------------------------TMS CLASS-----------------------------------###
 
@@ -339,7 +314,7 @@ def strongest_consequence(tms):
     Find the most informative consequence of the current worldview.
     """
     from nothing import NOTHING
-    from merge import merge
+    from generic_operations import generic_merge
     
     # Filter for values that are believed in the current worldview
     relevant_values = []
@@ -352,6 +327,6 @@ def strongest_consequence(tms):
     # Merge all relevant values to find the strongest consequence
     result = NOTHING
     for v_and_s in relevant_values:
-        result = merge(result, v_and_s)
+        result = generic_merge(result, v_and_s)
     
     return result 
