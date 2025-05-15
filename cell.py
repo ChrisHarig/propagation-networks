@@ -53,6 +53,7 @@ class Cell:
         
         # Update content and alert propagators if changed
         if merged != self._content:
+            print(f"Cell {self.name} changed from {self._content} to {merged}")
             self._content = merged
             self._alert_propagators()
     

@@ -102,9 +102,7 @@ def div_intervals(i1, i2):
     # Check if the divisor interval contains zero
     if i2.low <= 0 <= i2.high:
         if i2.low == 0 and i2.high == 0:
-            print(f"Warning: Division by zero interval {i2} attempted.")
             return EMPTY_INTERVAL
-        print(f"Warning: Division by interval {i2} containing zero.")
         # Use NOTHING to signal this case to the caller
         from nothing import NOTHING
         return NOTHING

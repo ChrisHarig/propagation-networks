@@ -33,7 +33,6 @@ There are two ways to use this implementation:
 -How and to which generics should we extend our system to support?  
 -How do we visualize TMS and what details do we want available to user? 
 -Do premises need ID's and are there side effects to them having ID's? 
--CURRENT ISSUE: Nothing not handled correctly by dispatcher, resulting in infinite recursion 
 
 ## References
 

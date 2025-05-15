@@ -32,15 +32,8 @@ class BaseLayer:
         If obj is a layered datum, retrieves its base value.
         Otherwise, returns the object itself.
         """
-        # Debug: Print type info
-        obj_type = type(obj).__name__
-        
         if hasattr(obj, 'get_layer_value'):
-            value = obj.get_layer_value('base')
-            print(f"BaseLayer.get_value: {obj_type} with layer -> {type(value).__name__}")
-            return value
-            
-        print(f"BaseLayer.get_value: {obj_type} (no layer) -> same")
+            return obj.get_layer_value('base')
         return obj
     
     @staticmethod
@@ -121,10 +114,7 @@ def layer_value(layer_name, obj): #do we want to return none if the layer is not
 # Convenience functions
 def debug_base_layer_value(obj):
     """Debug wrapper for base_layer_value."""
-    value = layer_value('base', obj)
-    # Debug: Print type info
-    print(f"base_layer_value: {type(obj).__name__} -> {type(value).__name__}")
-    return value
+    return layer_value('base', obj)
 
 base_layer_value = debug_base_layer_value
 support_layer_value = lambda obj: layer_value('support', obj)
@@ -168,6 +158,14 @@ class LayeredDatum:
     
     def __repr__(self):
         return f"LayeredDatum({repr(self.layers['base'])}, {', '.join(f'{k}={repr(v)}' for k, v in self.layers.items() if k != 'base')})"
+
+    def __eq__(self, other):
+        # If other is not a LayeredDatum, convert simple values to compare with base
+        if not isinstance(other, LayeredDatum):
+            return self.layers['base'] == other
+        
+        # Just compare base values
+        return self.layers['base'] == other.layers['base']
 
 def make_layered_datum(base_value, layer_dict=None):
     """
@@ -271,7 +269,6 @@ def flatten_layered_datum(layered_datum, _depth=0, _max_depth=10):
     
     # Prevent infinite recursion
     if _depth >= _max_depth:
-        print(f"Warning: Maximum recursion depth ({_max_depth}) reached in flatten_layered_datum")
         return layered_datum
     
     base_value = base_layer_value(layered_datum)
@@ -329,9 +326,6 @@ def layered_procedure_dispatcher(metadata):
         
         # Extract base values from all flattened arguments
         base_values = [base_layer_value(arg) for arg in flattened_args]
-        
-        # Debug: Print the types of base_values
-        print(f"Dispatcher for {metadata.get_name()} called with types: {[type(v).__name__ for v in base_values]}")
         
         # Apply the base procedure to get the base result
         base_result = base_procedure(*base_values)

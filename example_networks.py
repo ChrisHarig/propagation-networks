@@ -116,7 +116,6 @@ def fahrenheit_celsius_converter(f, c):
     
     five = make_cell("5")
     five.add_content(5)
-    
     nine = make_cell("9")
     nine.add_content(9)
     

@@ -43,7 +43,7 @@ class Propagator:
             self.operation()
         except ValueError as e:
             # Catch contradiction errors during propagation
-            print(f"Contradiction detected by {self.name or 'Unnamed Propagator'}: {e}")
+            pass
     
     def __str__(self):
         cell_names = ', '.join(c.name or '?' for c in self.cells)
@@ -100,9 +100,7 @@ def function_to_propagator_constructor(f):
         def operation(): 
             # Get the content of all input cells
             input_values = [cell.content() for cell in inputs]
-            
             # Apply the function to the input values
-            # The function should handle partial information itself
             result = f(*input_values)
             
             # Add the result to the output cell if it's not NOTHING
@@ -126,9 +124,7 @@ def alert_all_propagators():
     global _propagators_ever_alerted_list
     
     if not _propagators_ever_alerted_list:
-        print("Warning: No propagators have been alerted yet.")
         return
         
-    print(f"Alerting all {len(_propagators_ever_alerted_list)} registered propagators...")
     for propagator in _propagators_ever_alerted_list:
         propagator.alert()  # Direct call to alert to avoid re-registration 
